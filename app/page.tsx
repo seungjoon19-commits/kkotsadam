@@ -24,8 +24,27 @@ interface Reservation {
   staff_name?: string;
   created_at?: string;
   notes?: string;
-  status: 'pending' | 'confirmed' | 'completed' | 'cancelled' | string;
+  status: 'confirmed' | 'cancelled' | 'noshow' | string;
 }
+
+// 전화번호 자동 하이픈 포맷팅 함수
+const formatPhoneNumber = (value: string) => {
+  if (!value) return '';
+  const raw = value.replace(/[^0-9]/g, ''); // 숫자만 추출
+
+  if (raw.length === 11) {
+    return raw.replace(/(\d{3})(\d{4})(\d{4})/, '$1-$2-$3');
+  } else if (raw.length === 10) {
+    if (raw.startsWith('02')) {
+      return raw.replace(/(\d{2})(\d{4})(\d{4})/, '$1-$2-$3');
+    }
+    return raw.replace(/(\d{3})(\d{3})(\d{4})/, '$1-$2-$3');
+  } else if (raw.length === 8) {
+    // 00000000 식 입력 시 010-0000-0000 형태로 변환
+    return `010-${raw.slice(0, 4)}-${raw.slice(4)}`;
+  }
+  return value;
+};
 
 export default function ReservationDashboard() {
   const [reservations, setReservations] = useState<Reservation[]>([]);
@@ -102,7 +121,7 @@ export default function ReservationDashboard() {
     }
   };
 
-  // 수동 예약 추가 제출 (party_size 및 guest_count 모두 매핑)
+  // 수동 예약 추가 제출
   const handleFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.customer_name) {
@@ -110,9 +129,12 @@ export default function ReservationDashboard() {
       return;
     }
 
+    const formattedPhone = formatPhoneNumber(formData.customer_phone);
+
     const payload = {
       ...formData,
-      party_size: formData.guest_count, // party_size 컬럼 충족
+      customer_phone: formattedPhone,
+      party_size: formData.guest_count,
       guest_count: formData.guest_count,
     };
 
@@ -208,7 +230,7 @@ export default function ReservationDashboard() {
         {/* 상단 헤더 행 (시간 / 인원 / 성함 / 연락처 / 담당자 / 예약받은날짜 / 요청사항 / 상태 / 관리) */}
         <div style={{ 
           display: 'grid', 
-          gridTemplateColumns: '70px 60px 90px 130px 90px 110px 1fr 100px 70px', 
+          gridTemplateColumns: '70px 60px 90px 140px 90px 110px 1fr 100px 70px', 
           padding: '12px 16px', 
           backgroundColor: '#f9fafb', 
           borderBottom: '1px solid #e5e7eb',
@@ -243,7 +265,7 @@ export default function ReservationDashboard() {
               key={item.id} 
               style={{ 
                 display: 'grid', 
-                gridTemplateColumns: '70px 60px 90px 130px 90px 110px 1fr 100px 70px', 
+                gridTemplateColumns: '70px 60px 90px 140px 90px 110px 1fr 100px 70px', 
                 alignItems: 'center',
                 padding: '14px 16px', 
                 borderBottom: '1px solid #f3f4f6',
@@ -262,8 +284,10 @@ export default function ReservationDashboard() {
               {/* 3. 성함 */}
               <div style={{ fontWeight: '600' }}>{item.customer_name}</div>
 
-              {/* 4. 연락처 */}
-              <div style={{ color: '#4b5563', fontSize: '13px' }}>{item.customer_phone || '-'}</div>
+              {/* 4. 연락처 (자동 포맷팅 적용) */}
+              <div style={{ color: '#4b5563', fontSize: '13px' }}>
+                {item.customer_phone ? formatPhoneNumber(item.customer_phone) : '-'}
+              </div>
 
               {/* 5. 담당자 */}
               <div style={{ color: '#374151', fontSize: '13px' }}>{item.manager || item.staff_name || '-'}</div>
@@ -278,7 +302,7 @@ export default function ReservationDashboard() {
                 {item.notes || '-'}
               </div>
 
-              {/* 상태 선택 드롭다운 */}
+              {/* 8. 상태 선택 드롭다운 (확정 / 취소 / 노쇼) */}
               <div>
                 <select
                   value={item.status}
@@ -291,23 +315,22 @@ export default function ReservationDashboard() {
                     border: '1px solid #d1d5db',
                     backgroundColor: 
                       item.status === 'confirmed' ? '#dcfce7' :
-                      item.status === 'pending' ? '#fef9c3' :
-                      item.status === 'cancelled' ? '#fee2e2' : '#f3f4f6',
+                      item.status === 'cancelled' ? '#fee2e2' :
+                      item.status === 'noshow' ? '#f3e8ff' : '#f3f4f6',
                     color: 
                       item.status === 'confirmed' ? '#166534' :
-                      item.status === 'pending' ? '#854d0e' :
-                      item.status === 'cancelled' ? '#991b1b' : '#374151',
+                      item.status === 'cancelled' ? '#991b1b' :
+                      item.status === 'noshow' ? '#6b21a8' : '#374151',
                     cursor: 'pointer'
                   }}
                 >
-                  <option value="pending">대기</option>
                   <option value="confirmed">확정</option>
-                  <option value="completed">방문완료</option>
                   <option value="cancelled">취소</option>
+                  <option value="noshow">노쇼</option>
                 </select>
               </div>
 
-              {/* 삭제 버튼 */}
+              {/* 9. 삭제 버튼 */}
               <div style={{ textAlign: 'center' }}>
                 <button
                   onClick={() => handleDelete(item.id)}
@@ -406,9 +429,12 @@ export default function ReservationDashboard() {
                 <input
                   type="text"
                   value={formData.customer_phone}
-                  onChange={(e) => setFormData({ ...formData, customer_phone: e.target.value })}
+                  onChange={(e) => {
+                    const formatted = formatPhoneNumber(e.target.value);
+                    setFormData({ ...formData, customer_phone: formatted });
+                  }}
                   style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #ccc' }}
-                  placeholder="010-0000-0000"
+                  placeholder="010-0000-0000 또는 00000000"
                 />
               </div>
 
