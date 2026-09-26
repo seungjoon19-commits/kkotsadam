@@ -87,8 +87,9 @@ export default function ReservationDashboard() {
   );
   const [loading, setLoading] = useState<boolean>(true);
 
-  // 모달 및 수동 예약 폼 상태
+  // 모달 및 수동 예약 등록/수정 폼 상태
   const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
+  const [editingId, setEditingId] = useState<string | null>(null); // null이면 신규 등록, id가 있으면 수정
   const [formData, setFormData] = useState({
     reservation_date: new Date().toISOString().split('T')[0],
     reservation_time: '18:00',
@@ -170,7 +171,7 @@ export default function ReservationDashboard() {
     await supabase.auth.signOut();
   };
 
-  // 예약 상태 변경 함수
+  // 예약 상태 변경 함수 (드롭다운)
   const handleStatusChange = async (id: string, newStatus: string) => {
     const { error } = await supabase
       .from('reservations')
@@ -199,7 +200,42 @@ export default function ReservationDashboard() {
     }
   };
 
-  // 수동 예약 추가 제출
+  // 수동 예약 신규 등록 버튼 클릭
+  const handleOpenCreateModal = () => {
+    setEditingId(null);
+    setFormData({
+      reservation_date: selectedDate,
+      reservation_time: '18:00',
+      customer_name: '',
+      customer_phone: '',
+      party_size: 2,
+      guest_count: 2,
+      manager: '',
+      notes: '',
+      status: 'confirmed',
+    });
+    setIsModalOpen(true);
+  };
+
+  // 예약 수정 버튼 클릭 시 기존 정보 불러오기
+  const handleOpenEditModal = (item: Reservation) => {
+    setEditingId(item.id);
+    const guestNum = item.party_size ?? item.guest_count ?? 2;
+    setFormData({
+      reservation_date: item.reservation_date || selectedDate,
+      reservation_time: item.reservation_time ? item.reservation_time.substring(0, 5) : '18:00',
+      customer_name: item.customer_name || '',
+      customer_phone: item.customer_phone || '',
+      party_size: guestNum,
+      guest_count: guestNum,
+      manager: item.manager || item.staff_name || '',
+      notes: item.notes || '',
+      status: item.status || 'confirmed',
+    });
+    setIsModalOpen(true);
+  };
+
+  // 폼 제출 처리 (신규 등록 / 수정 구분)
   const handleFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.customer_name) {
@@ -216,28 +252,34 @@ export default function ReservationDashboard() {
       guest_count: formData.guest_count,
     };
 
-    const { error } = await supabase
-      .from('reservations')
-      .insert([payload])
-      .select();
+    if (editingId) {
+      // 수정 처리
+      const { error } = await supabase
+        .from('reservations')
+        .update(payload)
+        .eq('id', editingId);
 
-    if (error) {
-      alert('예약 등록 중 오류가 발생했습니다: ' + error.message);
+      if (error) {
+        alert('예약 수정 중 오류가 발생했습니다: ' + error.message);
+      } else {
+        alert('예약 정보가 수정되었습니다.');
+        setIsModalOpen(false);
+        fetchReservations();
+      }
     } else {
-      alert('예약이 성공적으로 등록되었습니다.');
-      setIsModalOpen(false);
-      setFormData({
-        reservation_date: selectedDate,
-        reservation_time: '18:00',
-        customer_name: '',
-        customer_phone: '',
-        party_size: 2,
-        guest_count: 2,
-        manager: '',
-        notes: '',
-        status: 'confirmed',
-      });
-      fetchReservations();
+      // 신규 등록 처리
+      const { error } = await supabase
+        .from('reservations')
+        .insert([payload])
+        .select();
+
+      if (error) {
+        alert('예약 등록 중 오류가 발생했습니다: ' + error.message);
+      } else {
+        alert('예약이 성공적으로 등록되었습니다.');
+        setIsModalOpen(false);
+        fetchReservations();
+      }
     }
   };
 
@@ -356,7 +398,7 @@ export default function ReservationDashboard() {
 
   // 17시 기준으로 런치 / 디너 분리
   const lunchReservations = filteredReservations.filter((item) => {
-    if (!item.reservation_time) return true; // 시간 미 지정시 기본 런치
+    if (!item.reservation_time) return true;
     const hour = parseInt(item.reservation_time.substring(0, 2), 10);
     return hour < 17;
   });
@@ -367,7 +409,7 @@ export default function ReservationDashboard() {
     return hour >= 17;
   });
 
-  // 요약 통계 계산 함수
+  // 요약 통계 계산
   const getSummary = (list: Reservation[]) => {
     const totalCount = list.length;
     const totalGuests = list
@@ -404,7 +446,7 @@ export default function ReservationDashboard() {
             {title}
           </span>
           <h2 style={{ margin: 0, fontSize: '16px', color: '#1e293b', fontWeight: 'bold' }}>
-            {title === '런치' ? '런치 예약 ' : '디너 예약 '}
+            {title === '런치' ? '런치 예약 목록 (17:00 이전)' : '디너 예약 목록 (17:00 이후)'}
           </h2>
         </div>
         <span style={{ fontSize: '13px', color: '#475569', fontWeight: '500' }}>
@@ -415,7 +457,7 @@ export default function ReservationDashboard() {
       {/* 컬럼 헤더 행 */}
       <div style={{ 
         display: 'grid', 
-        gridTemplateColumns: '70px 60px 90px 140px 90px 110px 1fr 100px 70px', 
+        gridTemplateColumns: '70px 60px 90px 140px 90px 110px 1fr 100px 110px', 
         padding: '12px 16px', 
         backgroundColor: '#ffffff', 
         borderBottom: '1px solid #f1f5f9',
@@ -449,7 +491,7 @@ export default function ReservationDashboard() {
               key={item.id} 
               style={{ 
                 display: 'grid', 
-                gridTemplateColumns: '70px 60px 90px 140px 90px 110px 1fr 100px 70px', 
+                gridTemplateColumns: '70px 60px 90px 140px 90px 110px 1fr 100px 110px', 
                 alignItems: 'center',
                 padding: '14px 16px', 
                 borderBottom: '1px solid #f1f5f9',
@@ -495,7 +537,23 @@ export default function ReservationDashboard() {
                 </select>
               </div>
 
-              <div style={{ textAlign: 'center' }}>
+              {/* 관리 버튼 영역 (수정 / 삭제) */}
+              <div style={{ textAlign: 'center', display: 'flex', gap: '4px', justifyContent: 'center' }}>
+                <button
+                  onClick={() => handleOpenEditModal(item)}
+                  style={{
+                    padding: '4px 8px',
+                    backgroundColor: '#f3f4f6',
+                    color: '#2563eb',
+                    border: '1px solid #bfdbfe',
+                    borderRadius: '4px',
+                    fontSize: '12px',
+                    cursor: 'pointer',
+                    fontWeight: '500'
+                  }}
+                >
+                  수정
+                </button>
                 <button
                   onClick={() => handleDelete(item.id)}
                   style={{
@@ -535,10 +593,7 @@ export default function ReservationDashboard() {
 
           <div style={{ display: 'flex', gap: '10px' }}>
             <button
-              onClick={() => {
-                setFormData((prev) => ({ ...prev, reservation_date: selectedDate }));
-                setIsModalOpen(true);
-              }}
+              onClick={handleOpenCreateModal}
               style={{
                 backgroundColor: '#2563eb',
                 color: '#ffffff',
@@ -609,7 +664,7 @@ export default function ReservationDashboard() {
         </>
       )}
 
-      {/* 수동 예약 등록 모달 팝업 */}
+      {/* 수동 예약 등록 / 수정 모달 팝업 */}
       {isModalOpen && (
         <div style={{
           position: 'fixed',
@@ -628,7 +683,9 @@ export default function ReservationDashboard() {
             maxWidth: '480px',
             boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)'
           }}>
-            <h2 style={{ marginTop: 0, marginBottom: '16px', fontSize: '18px' }}>예약 등록</h2>
+            <h2 style={{ marginTop: 0, marginBottom: '16px', fontSize: '18px' }}>
+              {editingId ? '예약 정보 수정' : '예약 등록'}
+            </h2>
             <form onSubmit={handleFormSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
               <div style={{ display: 'flex', gap: '12px' }}>
                 <div style={{ flex: 1 }}>
@@ -661,7 +718,7 @@ export default function ReservationDashboard() {
                     value={formData.customer_name}
                     onChange={(e) => setFormData({ ...formData, customer_name: e.target.value })}
                     style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #ccc' }}
-                    placeholder="고객명/회사명"
+                    placeholder="고객명/기업명"
                     required
                   />
                 </div>
@@ -728,7 +785,7 @@ export default function ReservationDashboard() {
                   type="submit"
                   style={{ padding: '8px 16px', borderRadius: '6px', border: 'none', backgroundColor: '#2563eb', color: '#fff', fontWeight: 'bold', cursor: 'pointer' }}
                 >
-                  저장
+                  {editingId ? '수정 완료' : '저장'}
                 </button>
               </div>
             </form>
