@@ -1,8 +1,8 @@
-import React from 'react';
+import type { Metadata } from 'next';
 
-export const metadata = {
-  title: '꽃새담 여의도 예약현황',
-  description: '예약현황',
+export const metadata: Metadata = {
+  title: '예약현황',
+  description: '매장 실시간 예약 관리 시스템',
 };
 
 export default function RootLayout({
@@ -12,7 +12,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="ko">
-      <body style={{ margin: 0, padding: 0 }}>{children}</body>
+      <body>{children}</body>
     </html>
   );
 }
