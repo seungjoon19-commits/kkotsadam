@@ -46,6 +46,31 @@ const formatPhoneNumber = (value: string) => {
   return value;
 };
 
+// 예약 상태별 행(Row) 스타일 계산 함수
+const getRowStyle = (status: string) => {
+  switch (status) {
+    case 'cancelled':
+      return {
+        backgroundColor: '#fef2f2', // 옅은 빨간색 배경
+        color: '#991b1b', // 진한 빨간색 글자
+        textDecoration: 'line-through', // 취소선 적용
+      };
+    case 'noshow':
+      return {
+        backgroundColor: '#faf5ff', // 옅은 보라색 배경
+        color: '#6b21a8', // 진한 보라색 글자
+        textDecoration: 'none',
+      };
+    case 'confirmed':
+    default:
+      return {
+        backgroundColor: '#ffffff', // 기본 흰색 배경
+        color: '#1f2937', // 기본 어두운 글자
+        textDecoration: 'none',
+      };
+  }
+};
+
 export default function ReservationDashboard() {
   const [reservations, setReservations] = useState<Reservation[]>([]);
   const [selectedDate, setSelectedDate] = useState<string>(
@@ -227,7 +252,7 @@ export default function ReservationDashboard() {
 
       {/* 예약 목록 (노트식 한 줄 레이아웃) */}
       <div style={{ backgroundColor: '#ffffff', borderRadius: '12px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', overflow: 'hidden' }}>
-        {/* 상단 헤더 행 (시간 / 인원 / 성함 / 연락처 / 담당자 / 예약받은날짜 / 요청사항 / 상태 / 관리) */}
+        {/* 상단 헤더 행 */}
         <div style={{ 
           display: 'grid', 
           gridTemplateColumns: '70px 60px 90px 140px 90px 110px 1fr 100px 70px', 
@@ -260,95 +285,105 @@ export default function ReservationDashboard() {
             선택하신 날짜에 예약 내역이 없습니다.
           </div>
         ) : (
-          filteredReservations.map((item) => (
-            <div 
-              key={item.id} 
-              style={{ 
-                display: 'grid', 
-                gridTemplateColumns: '70px 60px 90px 140px 90px 110px 1fr 100px 70px', 
-                alignItems: 'center',
-                padding: '14px 16px', 
-                borderBottom: '1px solid #f3f4f6',
-                fontSize: '14px',
-                color: '#1f2937'
-              }}
-            >
-              {/* 1. 시간 */}
-              <div style={{ fontWeight: 'bold', color: '#2563eb' }}>
-                {item.reservation_time ? item.reservation_time.substring(0, 5) : '-'}
+          filteredReservations.map((item) => {
+            const rowStyle = getRowStyle(item.status);
+
+            return (
+              <div 
+                key={item.id} 
+                style={{ 
+                  display: 'grid', 
+                  gridTemplateColumns: '70px 60px 90px 140px 90px 110px 1fr 100px 70px', 
+                  alignItems: 'center',
+                  padding: '14px 16px', 
+                  borderBottom: '1px solid #f3f4f6',
+                  fontSize: '14px',
+                  backgroundColor: rowStyle.backgroundColor,
+                  color: rowStyle.color,
+                  textDecoration: rowStyle.textDecoration,
+                  transition: 'background-color 0.2s ease',
+                }}
+              >
+                {/* 1. 시간 */}
+                <div style={{ fontWeight: 'bold', color: item.status === 'confirmed' ? '#2563eb' : 'inherit' }}>
+                  {item.reservation_time ? item.reservation_time.substring(0, 5) : '-'}
+                </div>
+
+                {/* 2. 인원 */}
+                <div>{item.party_size ?? item.guest_count ?? 1}명</div>
+
+                {/* 3. 성함 */}
+                <div style={{ fontWeight: '600' }}>{item.customer_name}</div>
+
+                {/* 4. 연락처 */}
+                <div style={{ fontSize: '13px', color: 'inherit', opacity: 0.9 }}>
+                  {item.customer_phone ? formatPhoneNumber(item.customer_phone) : '-'}
+                </div>
+
+                {/* 5. 담당자 */}
+                <div style={{ fontSize: '13px', color: 'inherit', opacity: 0.9 }}>
+                  {item.manager || item.staff_name || '-'}
+                </div>
+
+                {/* 6. 예약받은날짜 */}
+                <div style={{ fontSize: '12px', color: 'inherit', opacity: 0.75 }}>
+                  {item.created_at ? item.created_at.substring(0, 10) : '-'}
+                </div>
+
+                {/* 7. 요청사항 */}
+                <div style={{ fontSize: '13px', paddingRight: '12px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', opacity: 0.85 }}>
+                  {item.notes || '-'}
+                </div>
+
+                {/* 8. 상태 선택 드롭다운 */}
+                <div>
+                  <select
+                    value={item.status}
+                    onChange={(e) => handleStatusChange(item.id, e.target.value)}
+                    style={{
+                      padding: '4px 8px',
+                      borderRadius: '6px',
+                      fontSize: '12px',
+                      fontWeight: '600',
+                      border: '1px solid #d1d5db',
+                      backgroundColor: 
+                        item.status === 'confirmed' ? '#dcfce7' :
+                        item.status === 'cancelled' ? '#fee2e2' :
+                        item.status === 'noshow' ? '#f3e8ff' : '#ffffff',
+                      color: 
+                        item.status === 'confirmed' ? '#166534' :
+                        item.status === 'cancelled' ? '#991b1b' :
+                        item.status === 'noshow' ? '#6b21a8' : '#374151',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    <option value="confirmed">확정</option>
+                    <option value="cancelled">취소</option>
+                    <option value="noshow">노쇼</option>
+                  </select>
+                </div>
+
+                {/* 9. 삭제 버튼 */}
+                <div style={{ textAlign: 'center' }}>
+                  <button
+                    onClick={() => handleDelete(item.id)}
+                    style={{
+                      padding: '4px 8px',
+                      backgroundColor: 'transparent',
+                      color: item.status === 'cancelled' || item.status === 'noshow' ? 'inherit' : '#ef4444',
+                      border: '1px solid #fca5a5',
+                      borderRadius: '4px',
+                      fontSize: '12px',
+                      cursor: 'pointer',
+                      opacity: 0.8,
+                    }}
+                  >
+                    삭제
+                  </button>
+                </div>
               </div>
-
-              {/* 2. 인원 */}
-              <div>{item.party_size ?? item.guest_count ?? 1}명</div>
-
-              {/* 3. 성함 */}
-              <div style={{ fontWeight: '600' }}>{item.customer_name}</div>
-
-              {/* 4. 연락처 (자동 포맷팅 적용) */}
-              <div style={{ color: '#4b5563', fontSize: '13px' }}>
-                {item.customer_phone ? formatPhoneNumber(item.customer_phone) : '-'}
-              </div>
-
-              {/* 5. 담당자 */}
-              <div style={{ color: '#374151', fontSize: '13px' }}>{item.manager || item.staff_name || '-'}</div>
-
-              {/* 6. 예약받은날짜 */}
-              <div style={{ color: '#6b7280', fontSize: '12px' }}>
-                {item.created_at ? item.created_at.substring(0, 10) : '-'}
-              </div>
-
-              {/* 7. 요청사항 */}
-              <div style={{ color: '#6b7280', fontSize: '13px', paddingRight: '12px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                {item.notes || '-'}
-              </div>
-
-              {/* 8. 상태 선택 드롭다운 (확정 / 취소 / 노쇼) */}
-              <div>
-                <select
-                  value={item.status}
-                  onChange={(e) => handleStatusChange(item.id, e.target.value)}
-                  style={{
-                    padding: '4px 8px',
-                    borderRadius: '6px',
-                    fontSize: '12px',
-                    fontWeight: '600',
-                    border: '1px solid #d1d5db',
-                    backgroundColor: 
-                      item.status === 'confirmed' ? '#dcfce7' :
-                      item.status === 'cancelled' ? '#fee2e2' :
-                      item.status === 'noshow' ? '#f3e8ff' : '#f3f4f6',
-                    color: 
-                      item.status === 'confirmed' ? '#166534' :
-                      item.status === 'cancelled' ? '#991b1b' :
-                      item.status === 'noshow' ? '#6b21a8' : '#374151',
-                    cursor: 'pointer'
-                  }}
-                >
-                  <option value="confirmed">확정</option>
-                  <option value="cancelled">취소</option>
-                  <option value="noshow">노쇼</option>
-                </select>
-              </div>
-
-              {/* 9. 삭제 버튼 */}
-              <div style={{ textAlign: 'center' }}>
-                <button
-                  onClick={() => handleDelete(item.id)}
-                  style={{
-                    padding: '4px 8px',
-                    backgroundColor: 'transparent',
-                    color: '#ef4444',
-                    border: '1px solid #fca5a5',
-                    borderRadius: '4px',
-                    fontSize: '12px',
-                    cursor: 'pointer'
-                  }}
-                >
-                  삭제
-                </button>
-              </div>
-            </div>
-          ))
+            );
+          })
         )}
       </div>
 
@@ -371,7 +406,7 @@ export default function ReservationDashboard() {
             maxWidth: '480px',
             boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)'
           }}>
-            <h2 style={{ marginTop: 0, marginBottom: '16px', fontSize: '18px' }}>수동 예약 등록</h2>
+            <h2 style={{ marginTop: 0, marginBottom: '16px', fontSize: '18px' }}>예약 등록</h2>
             <form onSubmit={handleFormSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
               <div style={{ display: 'flex', gap: '12px' }}>
                 <div style={{ flex: 1 }}>
@@ -404,7 +439,7 @@ export default function ReservationDashboard() {
                     value={formData.customer_name}
                     onChange={(e) => setFormData({ ...formData, customer_name: e.target.value })}
                     style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #ccc' }}
-                    placeholder="홍길동"
+                    placeholder="고객명 / 회사명"
                     required
                   />
                 </div>
@@ -434,7 +469,7 @@ export default function ReservationDashboard() {
                     setFormData({ ...formData, customer_phone: formatted });
                   }}
                   style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #ccc' }}
-                  placeholder="010-0000-0000 또는 00000000"
+                  placeholder="전화번호 필수"
                 />
               </div>
 
@@ -455,7 +490,7 @@ export default function ReservationDashboard() {
                   value={formData.notes}
                   onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
                   style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #ccc', height: '60px' }}
-                  placeholder="창가 자리 희망 등"
+                  placeholder="선주문 확인 / 선주문 안할시 점심시간에는 음식 나오기까지 20분 이상 소요 될 수 있음 설명"
                 />
               </div>
 
