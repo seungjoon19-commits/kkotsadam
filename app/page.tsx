@@ -598,7 +598,7 @@ export default function ReservationDashboard() {
                     value={formData.customer_name}
                     onChange={(e) => setFormData({ ...formData, customer_name: e.target.value })}
                     style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #ccc' }}
-                    placeholder="홍길동"
+                    placeholder="고객명 / 회사명"
                     required
                   />
                 </div>
@@ -628,7 +628,7 @@ export default function ReservationDashboard() {
                     setFormData({ ...formData, customer_phone: formatted });
                   }}
                   style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #ccc' }}
-                  placeholder="010-0000-0000 또는 00000000"
+                  placeholder="연락처 확인"
                 />
               </div>
 
@@ -649,7 +649,7 @@ export default function ReservationDashboard() {
                   value={formData.notes}
                   onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
                   style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #ccc', height: '60px' }}
-                  placeholder="창가 자리 희망 등"
+                  placeholder="점심시간 선주문 안할 경우 음식 제공까지 20분 이상 소요 될 수 있음 안내"
                 />
               </div>
 
