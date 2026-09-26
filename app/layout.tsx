@@ -1,8 +1,8 @@
 import React from 'react';
 
 export const metadata = {
-  title: '식당 예약 관리 대시보드',
-  description: '점주 전용 예약 관리 시스템',
+  title: '꽃새담 여의도 예약현황',
+  description: '예약현황',
 };
 
 export default function RootLayout({

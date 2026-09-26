@@ -110,7 +110,7 @@ export default function AdminDashboard() {
         
         {/* 상단 헤더 및 기능 버튼 */}
         <div style={{ backgroundColor: '#ffffff', padding: '24px', borderRadius: '12px', marginBottom: '20px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
-          <h1 style={{ margin: '0 0 8px 0', fontSize: '24px', color: '#111827' }}>점주 전용 예약 관리 대시보드</h1>
+          <h1 style={{ margin: '0 0 8px 0', fontSize: '24px', color: '#111827' }}>꽃새담 여의도 예약 현황</h1>
           <p style={{ margin: '0 0 16px 0', fontSize: '14px', color: '#6b7280' }}>
             원하는 날짜를 선택하여 현황을 확인하고, 전화 예약을 수동으로 등록하세요.
           </p>
