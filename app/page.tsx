@@ -2,8 +2,9 @@
 
 import { useEffect, useState } from 'react';
 import { createClient } from '@supabase/supabase-js';
+import { User } from '@supabase/supabase-js';
 
-// Supabase 클라이언트 설정 (환경 변수가 없을 경우 기본값 처리)
+// Supabase 클라이언트 설정
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
 const supabase = createClient(
@@ -30,7 +31,7 @@ interface Reservation {
 // 전화번호 자동 하이픈 포맷팅 함수
 const formatPhoneNumber = (value: string) => {
   if (!value) return '';
-  const raw = value.replace(/[^0-9]/g, ''); // 숫자만 추출
+  const raw = value.replace(/[^0-9]/g, '');
 
   if (raw.length === 11) {
     return raw.replace(/(\d{3})(\d{4})(\d{4})/, '$1-$2-$3');
@@ -40,7 +41,6 @@ const formatPhoneNumber = (value: string) => {
     }
     return raw.replace(/(\d{3})(\d{3})(\d{4})/, '$1-$2-$3');
   } else if (raw.length === 8) {
-    // 00000000 식 입력 시 010-0000-0000 형태로 변환
     return `010-${raw.slice(0, 4)}-${raw.slice(4)}`;
   }
   return value;
@@ -51,27 +51,36 @@ const getRowStyle = (status: string) => {
   switch (status) {
     case 'cancelled':
       return {
-        backgroundColor: '#fef2f2', // 옅은 빨간색 배경
-        color: '#991b1b', // 진한 빨간색 글자
-        textDecoration: 'line-through', // 취소선 적용
+        backgroundColor: '#fef2f2',
+        color: '#991b1b',
+        textDecoration: 'line-through',
       };
     case 'noshow':
       return {
-        backgroundColor: '#faf5ff', // 옅은 보라색 배경
-        color: '#6b21a8', // 진한 보라색 글자
+        backgroundColor: '#faf5ff',
+        color: '#6b21a8',
         textDecoration: 'none',
       };
     case 'confirmed':
     default:
       return {
-        backgroundColor: '#ffffff', // 기본 흰색 배경
-        color: '#1f2937', // 기본 어두운 글자
+        backgroundColor: '#ffffff',
+        color: '#1f2937',
         textDecoration: 'none',
       };
   }
 };
 
 export default function ReservationDashboard() {
+  // 인증 관련 상태
+  const [user, setUser] = useState<User | null>(null);
+  const [authLoading, setAuthLoading] = useState<boolean>(true);
+  const [email, setEmail] = useState<string>('');
+  const [password, setPassword] = useState<string>('');
+  const [loginError, setLoginError] = useState<string>('');
+  const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+
+  // 예약 관련 상태
   const [reservations, setReservations] = useState<Reservation[]>([]);
   const [selectedDate, setSelectedDate] = useState<string>(
     new Date().toISOString().split('T')[0]
@@ -91,6 +100,26 @@ export default function ReservationDashboard() {
     notes: '',
     status: 'confirmed',
   });
+
+  // 세션 확인 및 로그인 상태 리스너 등록
+  useEffect(() => {
+    const checkSession = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      setUser(session?.user ?? null);
+      setAuthLoading(false);
+    };
+
+    checkSession();
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null);
+      setAuthLoading(false);
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, []);
 
   // 예약 데이터 불러오기
   const fetchReservations = async () => {
@@ -114,8 +143,32 @@ export default function ReservationDashboard() {
   };
 
   useEffect(() => {
-    fetchReservations();
-  }, []);
+    if (user) {
+      fetchReservations();
+    }
+  }, [user]);
+
+  // 로그인 제출
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoginError('');
+    setIsSubmitting(true);
+
+    const { error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
+
+    if (error) {
+      setLoginError('아이디(이메일) 또는 비밀번호가 올바르지 않습니다.');
+    }
+    setIsSubmitting(false);
+  };
+
+  // 로그아웃
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+  };
 
   // 예약 상태 변경 함수
   const handleStatusChange = async (id: string, newStatus: string) => {
@@ -188,17 +241,125 @@ export default function ReservationDashboard() {
     }
   };
 
+  // 로딩 화면
+  if (authLoading) {
+    return (
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', fontFamily: 'system-ui, -apple-system, sans-serif' }}>
+        <p style={{ color: '#6b7280', fontSize: '16px' }}>인증 정보를 확인 중입니다...</p>
+      </div>
+    );
+  }
+
+  // 1. 로그인 화면 (비로그인 시)
+  if (!user) {
+    return (
+      <div style={{ 
+        display: 'flex', 
+        justifyContent: 'center', 
+        alignItems: 'center', 
+        minHeight: '100vh', 
+        backgroundColor: '#f3f4f6', 
+        fontFamily: 'system-ui, -apple-system, sans-serif' 
+      }}>
+        <div style={{ 
+          backgroundColor: '#ffffff', 
+          padding: '40px', 
+          borderRadius: '16px', 
+          boxShadow: '0 10px 25px -5px rgba(0,0,0,0.1)', 
+          width: '100%', 
+          maxWidth: '400px' 
+        }}>
+          <h1 style={{ textAlign: 'center', fontSize: '24px', fontWeight: 'bold', color: '#111827', marginBottom: '8px' }}>
+            예약현황 관리자 로그인
+          </h1>
+          <p style={{ textAlign: 'center', fontSize: '14px', color: '#6b7280', marginBottom: '28px' }}>
+            관리자 아이디와 비밀번호를 입력해주세요.
+          </p>
+
+          <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            <div>
+              <label style={{ display: 'block', fontSize: '13px', fontWeight: 'bold', color: '#374151', marginBottom: '6px' }}>
+                아이디 (이메일)
+              </label>
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="admin@example.com"
+                required
+                style={{
+                  width: '100%',
+                  padding: '12px',
+                  borderRadius: '8px',
+                  border: '1px solid #d1d5db',
+                  fontSize: '14px',
+                  boxSizing: 'border-box'
+                }}
+              />
+            </div>
+
+            <div>
+              <label style={{ display: 'block', fontSize: '13px', fontWeight: 'bold', color: '#374151', marginBottom: '6px' }}>
+                비밀번호
+              </label>
+              <input
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="••••••••"
+                required
+                style={{
+                  width: '100%',
+                  padding: '12px',
+                  borderRadius: '8px',
+                  border: '1px solid #d1d5db',
+                  fontSize: '14px',
+                  boxSizing: 'border-box'
+                }}
+              />
+            </div>
+
+            {loginError && (
+              <p style={{ color: '#ef4444', fontSize: '13px', margin: '4px 0 0 0', textAlign: 'center' }}>
+                {loginError}
+              </p>
+            )}
+
+            <button
+              type="submit"
+              disabled={isSubmitting}
+              style={{
+                marginTop: '8px',
+                padding: '12px',
+                backgroundColor: '#2563eb',
+                color: '#ffffff',
+                border: 'none',
+                borderRadius: '8px',
+                fontSize: '15px',
+                fontWeight: 'bold',
+                cursor: isSubmitting ? 'not-allowed' : 'pointer',
+                opacity: isSubmitting ? 0.7 : 1
+              }}
+            >
+              {isSubmitting ? '로그인 중...' : '로그인'}
+            </button>
+          </form>
+        </div>
+      </div>
+    );
+  }
+
   // 선택된 날짜의 예약 필터링
   const filteredReservations = reservations.filter(
     (item) => item.reservation_date === selectedDate
   );
 
-  // 선택된 날짜의 총 예약 건수 및 총 인원수 계산 (취소 건은 인원수 합산에서 제외)
   const totalReservationsCount = filteredReservations.length;
   const totalGuestsCount = filteredReservations
     .filter((item) => item.status !== 'cancelled')
     .reduce((sum, item) => sum + (item.party_size ?? item.guest_count ?? 1), 0);
 
+  // 2. 예약현황 대시보드 화면 (로그인 완료 시)
   return (
     <div style={{ padding: '24px', maxWidth: '1280px', margin: '0 auto', fontFamily: 'system-ui, -apple-system, sans-serif' }}>
       {/* 상단 헤더 및 기능 영역 */}
@@ -206,31 +367,49 @@ export default function ReservationDashboard() {
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
           <div>
             <h1 style={{ margin: '0 0 8px 0', fontSize: '24px', color: '#111827', fontWeight: 'bold' }}>
-              꽃새담 여의도 예약현황
+              예약현황
             </h1>
             <p style={{ margin: 0, fontSize: '14px', color: '#6b7280' }}>
-              실시간 예약 현황을 한눈에 확인하고 관리하세요.
+              실시간 예약 현황을 한눈에 확인하고 관리하세요. ({user.email})
             </p>
           </div>
 
-          <button
-            onClick={() => {
-              setFormData((prev) => ({ ...prev, reservation_date: selectedDate }));
-              setIsModalOpen(true);
-            }}
-            style={{
-              backgroundColor: '#2563eb',
-              color: '#ffffff',
-              padding: '10px 18px',
-              borderRadius: '8px',
-              border: 'none',
-              fontWeight: '600',
-              fontSize: '14px',
-              cursor: 'pointer',
-            }}
-          >
-            + 예약 등록
-          </button>
+          <div style={{ display: 'flex', gap: '10px' }}>
+            <button
+              onClick={() => {
+                setFormData((prev) => ({ ...prev, reservation_date: selectedDate }));
+                setIsModalOpen(true);
+              }}
+              style={{
+                backgroundColor: '#2563eb',
+                color: '#ffffff',
+                padding: '10px 18px',
+                borderRadius: '8px',
+                border: 'none',
+                fontWeight: '600',
+                fontSize: '14px',
+                cursor: 'pointer',
+              }}
+            >
+              + 예약 등록
+            </button>
+
+            <button
+              onClick={handleLogout}
+              style={{
+                backgroundColor: '#f3f4f6',
+                color: '#374151',
+                padding: '10px 16px',
+                borderRadius: '8px',
+                border: '1px solid #d1d5db',
+                fontWeight: '600',
+                fontSize: '14px',
+                cursor: 'pointer',
+              }}
+            >
+              로그아웃
+            </button>
+          </div>
         </div>
 
         {/* 날짜 선택 필터 및 예약/인원 총계 표시 */}
@@ -256,7 +435,7 @@ export default function ReservationDashboard() {
         </div>
       </div>
 
-      {/* 예약 목록 (노트식 한 줄 레이아웃) */}
+      {/* 예약 목록 */}
       <div style={{ backgroundColor: '#ffffff', borderRadius: '12px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', overflow: 'hidden' }}>
         {/* 상단 헤더 행 */}
         <div style={{ 
@@ -310,38 +489,14 @@ export default function ReservationDashboard() {
                   transition: 'background-color 0.2s ease',
                 }}
               >
-                {/* 1. 시간 */}
-                <div style={{ fontWeight: 'bold', color: item.status === 'confirmed' ? '#2563eb' : 'inherit' }}>
-                  {item.reservation_time ? item.reservation_time.substring(0, 5) : '-'}
-                </div>
-
-                {/* 2. 인원 */}
+                <div>{item.reservation_time ? item.reservation_time.substring(0, 5) : '-'}</div>
                 <div>{item.party_size ?? item.guest_count ?? 1}명</div>
-
-                {/* 3. 성함 */}
                 <div style={{ fontWeight: '600' }}>{item.customer_name}</div>
+                <div style={{ fontSize: '13px' }}>{item.customer_phone ? formatPhoneNumber(item.customer_phone) : '-'}</div>
+                <div style={{ fontSize: '13px' }}>{item.manager || item.staff_name || '-'}</div>
+                <div style={{ fontSize: '12px', opacity: 0.75 }}>{item.created_at ? item.created_at.substring(0, 10) : '-'}</div>
+                <div style={{ fontSize: '13px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.notes || '-'}</div>
 
-                {/* 4. 연락처 */}
-                <div style={{ fontSize: '13px', color: 'inherit', opacity: 0.9 }}>
-                  {item.customer_phone ? formatPhoneNumber(item.customer_phone) : '-'}
-                </div>
-
-                {/* 5. 담당자 */}
-                <div style={{ fontSize: '13px', color: 'inherit', opacity: 0.9 }}>
-                  {item.manager || item.staff_name || '-'}
-                </div>
-
-                {/* 6. 예약받은날짜 */}
-                <div style={{ fontSize: '12px', color: 'inherit', opacity: 0.75 }}>
-                  {item.created_at ? item.created_at.substring(0, 10) : '-'}
-                </div>
-
-                {/* 7. 요청사항 */}
-                <div style={{ fontSize: '13px', paddingRight: '12px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', opacity: 0.85 }}>
-                  {item.notes || '-'}
-                </div>
-
-                {/* 8. 상태 선택 드롭다운 */}
                 <div>
                   <select
                     value={item.status}
@@ -369,19 +524,17 @@ export default function ReservationDashboard() {
                   </select>
                 </div>
 
-                {/* 9. 삭제 버튼 */}
                 <div style={{ textAlign: 'center' }}>
                   <button
                     onClick={() => handleDelete(item.id)}
                     style={{
                       padding: '4px 8px',
                       backgroundColor: 'transparent',
-                      color: item.status === 'cancelled' || item.status === 'noshow' ? 'inherit' : '#ef4444',
+                      color: '#ef4444',
                       border: '1px solid #fca5a5',
                       borderRadius: '4px',
                       fontSize: '12px',
                       cursor: 'pointer',
-                      opacity: 0.8,
                     }}
                   >
                     삭제
