@@ -354,10 +354,169 @@ export default function ReservationDashboard() {
     (item) => item.reservation_date === selectedDate
   );
 
-  const totalReservationsCount = filteredReservations.length;
-  const totalGuestsCount = filteredReservations
-    .filter((item) => item.status !== 'cancelled')
-    .reduce((sum, item) => sum + (item.party_size ?? item.guest_count ?? 1), 0);
+  // 17시 기준으로 런치 / 디너 분리
+  const lunchReservations = filteredReservations.filter((item) => {
+    if (!item.reservation_time) return true; // 시간 미 지정시 기본 런치
+    const hour = parseInt(item.reservation_time.substring(0, 2), 10);
+    return hour < 17;
+  });
+
+  const dinnerReservations = filteredReservations.filter((item) => {
+    if (!item.reservation_time) return false;
+    const hour = parseInt(item.reservation_time.substring(0, 2), 10);
+    return hour >= 17;
+  });
+
+  // 요약 통계 계산 함수
+  const getSummary = (list: Reservation[]) => {
+    const totalCount = list.length;
+    const totalGuests = list
+      .filter((item) => item.status !== 'cancelled')
+      .reduce((sum, item) => sum + (item.party_size ?? item.guest_count ?? 1), 0);
+    return { totalCount, totalGuests };
+  };
+
+  const totalSummary = getSummary(filteredReservations);
+  const lunchSummary = getSummary(lunchReservations);
+  const dinnerSummary = getSummary(dinnerReservations);
+
+  // 공통 예약 세션 목록 렌더링 함수
+  const renderReservationTable = (title: string, list: Reservation[], summary: { totalCount: number; totalGuests: number }, badgeColor: string) => (
+    <div style={{ backgroundColor: '#ffffff', borderRadius: '12px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', overflow: 'hidden', marginBottom: '28px' }}>
+      {/* 세션 제목 및 요약 헤더 */}
+      <div style={{ 
+        padding: '14px 20px', 
+        backgroundColor: '#f8fafc', 
+        borderBottom: '1px solid #e2e8f0', 
+        display: 'flex', 
+        justifyContent: 'space-between', 
+        alignItems: 'center' 
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <span style={{ 
+            backgroundColor: badgeColor, 
+            color: '#ffffff', 
+            fontSize: '12px', 
+            fontWeight: 'bold', 
+            padding: '4px 10px', 
+            borderRadius: '20px' 
+          }}>
+            {title}
+          </span>
+          <h2 style={{ margin: 0, fontSize: '16px', color: '#1e293b', fontWeight: 'bold' }}>
+            {title === '런치' ? '런치 예약 목록 (17:00 이전)' : '디너 예약 목록 (17:00 이후)'}
+          </h2>
+        </div>
+        <span style={{ fontSize: '13px', color: '#475569', fontWeight: '500' }}>
+          예약 <strong style={{ color: '#2563eb' }}>{summary.totalCount}</strong>건 / 인원 <strong style={{ color: '#2563eb' }}>{summary.totalGuests}</strong>명
+        </span>
+      </div>
+
+      {/* 컬럼 헤더 행 */}
+      <div style={{ 
+        display: 'grid', 
+        gridTemplateColumns: '70px 60px 90px 140px 90px 110px 1fr 100px 70px', 
+        padding: '12px 16px', 
+        backgroundColor: '#ffffff', 
+        borderBottom: '1px solid #f1f5f9',
+        fontSize: '13px',
+        fontWeight: 'bold',
+        color: '#64748b',
+        alignItems: 'center'
+      }}>
+        <div>시간</div>
+        <div>인원</div>
+        <div>성함</div>
+        <div>연락처</div>
+        <div>담당자</div>
+        <div>예약받은날짜</div>
+        <div>요청사항</div>
+        <div>상태</div>
+        <div style={{ textAlign: 'center' }}>관리</div>
+      </div>
+
+      {/* 목록 데이터 출력 */}
+      {list.length === 0 ? (
+        <div style={{ padding: '24px', textAlign: 'center', color: '#94a3b8', fontSize: '14px' }}>
+          {title} 예약 내역이 없습니다.
+        </div>
+      ) : (
+        list.map((item) => {
+          const rowStyle = getRowStyle(item.status);
+
+          return (
+            <div 
+              key={item.id} 
+              style={{ 
+                display: 'grid', 
+                gridTemplateColumns: '70px 60px 90px 140px 90px 110px 1fr 100px 70px', 
+                alignItems: 'center',
+                padding: '14px 16px', 
+                borderBottom: '1px solid #f1f5f9',
+                fontSize: '14px',
+                backgroundColor: rowStyle.backgroundColor,
+                color: rowStyle.color,
+                textDecoration: rowStyle.textDecoration,
+                transition: 'background-color 0.2s ease',
+              }}
+            >
+              <div style={{ fontWeight: 'bold' }}>{item.reservation_time ? item.reservation_time.substring(0, 5) : '-'}</div>
+              <div>{item.party_size ?? item.guest_count ?? 1}명</div>
+              <div style={{ fontWeight: '600' }}>{item.customer_name}</div>
+              <div style={{ fontSize: '13px' }}>{item.customer_phone ? formatPhoneNumber(item.customer_phone) : '-'}</div>
+              <div style={{ fontSize: '13px' }}>{item.manager || item.staff_name || '-'}</div>
+              <div style={{ fontSize: '12px', opacity: 0.75 }}>{item.created_at ? item.created_at.substring(0, 10) : '-'}</div>
+              <div style={{ fontSize: '13px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.notes || '-'}</div>
+
+              <div>
+                <select
+                  value={item.status}
+                  onChange={(e) => handleStatusChange(item.id, e.target.value)}
+                  style={{
+                    padding: '4px 8px',
+                    borderRadius: '6px',
+                    fontSize: '12px',
+                    fontWeight: '600',
+                    border: '1px solid #d1d5db',
+                    backgroundColor: 
+                      item.status === 'confirmed' ? '#dcfce7' :
+                      item.status === 'cancelled' ? '#fee2e2' :
+                      item.status === 'noshow' ? '#f3e8ff' : '#ffffff',
+                    color: 
+                      item.status === 'confirmed' ? '#166534' :
+                      item.status === 'cancelled' ? '#991b1b' :
+                      item.status === 'noshow' ? '#6b21a8' : '#374151',
+                    cursor: 'pointer'
+                  }}
+                >
+                  <option value="confirmed">확정</option>
+                  <option value="cancelled">취소</option>
+                  <option value="noshow">노쇼</option>
+                </select>
+              </div>
+
+              <div style={{ textAlign: 'center' }}>
+                <button
+                  onClick={() => handleDelete(item.id)}
+                  style={{
+                    padding: '4px 8px',
+                    backgroundColor: 'transparent',
+                    color: '#ef4444',
+                    border: '1px solid #fca5a5',
+                    borderRadius: '4px',
+                    fontSize: '12px',
+                    cursor: 'pointer',
+                  }}
+                >
+                  삭제
+                </button>
+              </div>
+            </div>
+          );
+        })
+      )}
+    </div>
+  );
 
   // 2. 예약현황 대시보드 화면 (로그인 완료 시)
   return (
@@ -391,7 +550,7 @@ export default function ReservationDashboard() {
                 cursor: 'pointer',
               }}
             >
-              + 예약 등록
+              + 수동 예약 등록
             </button>
 
             <button
@@ -430,121 +589,25 @@ export default function ReservationDashboard() {
             }}
           />
           <span style={{ fontSize: '14px', color: '#4b5563', fontWeight: '500' }}>
-            (예약 <strong style={{ color: '#2563eb' }}>{totalReservationsCount}</strong>건 / 인원 <strong style={{ color: '#2563eb' }}>{totalGuestsCount}</strong>명)
+            [전체] (예약 <strong style={{ color: '#2563eb' }}>{totalSummary.totalCount}</strong>건 / 인원 <strong style={{ color: '#2563eb' }}>{totalSummary.totalGuests}</strong>명)
           </span>
         </div>
       </div>
 
-      {/* 예약 목록 */}
-      <div style={{ backgroundColor: '#ffffff', borderRadius: '12px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', overflow: 'hidden' }}>
-        {/* 상단 헤더 행 */}
-        <div style={{ 
-          display: 'grid', 
-          gridTemplateColumns: '70px 60px 90px 140px 90px 110px 1fr 100px 70px', 
-          padding: '12px 16px', 
-          backgroundColor: '#f9fafb', 
-          borderBottom: '1px solid #e5e7eb',
-          fontSize: '13px',
-          fontWeight: 'bold',
-          color: '#4b5563',
-          alignItems: 'center'
-        }}>
-          <div>시간</div>
-          <div>인원</div>
-          <div>성함</div>
-          <div>연락처</div>
-          <div>담당자</div>
-          <div>예약받은날짜</div>
-          <div>요청사항</div>
-          <div>상태</div>
-          <div style={{ textAlign: 'center' }}>관리</div>
+      {/* 예약 목록 섹션 (런치 / 디너 분리) */}
+      {loading ? (
+        <div style={{ backgroundColor: '#ffffff', padding: '32px', borderRadius: '12px', textAlign: 'center', color: '#6b7280', fontSize: '14px' }}>
+          예약 내역을 불러오는 중입니다...
         </div>
+      ) : (
+        <>
+          {/* 런치 예약 테이블 */}
+          {renderReservationTable('런치', lunchReservations, lunchSummary, '#f59e0b')}
 
-        {/* 목록 데이터 출력 */}
-        {loading ? (
-          <div style={{ padding: '32px', textAlign: 'center', color: '#6b7280', fontSize: '14px' }}>
-            예약 내역을 불러오는 중입니다...
-          </div>
-        ) : filteredReservations.length === 0 ? (
-          <div style={{ padding: '32px', textAlign: 'center', color: '#9ca3af', fontSize: '14px' }}>
-            선택하신 날짜에 예약 내역이 없습니다.
-          </div>
-        ) : (
-          filteredReservations.map((item) => {
-            const rowStyle = getRowStyle(item.status);
-
-            return (
-              <div 
-                key={item.id} 
-                style={{ 
-                  display: 'grid', 
-                  gridTemplateColumns: '70px 60px 90px 140px 90px 110px 1fr 100px 70px', 
-                  alignItems: 'center',
-                  padding: '14px 16px', 
-                  borderBottom: '1px solid #f3f4f6',
-                  fontSize: '14px',
-                  backgroundColor: rowStyle.backgroundColor,
-                  color: rowStyle.color,
-                  textDecoration: rowStyle.textDecoration,
-                  transition: 'background-color 0.2s ease',
-                }}
-              >
-                <div>{item.reservation_time ? item.reservation_time.substring(0, 5) : '-'}</div>
-                <div>{item.party_size ?? item.guest_count ?? 1}명</div>
-                <div style={{ fontWeight: '600' }}>{item.customer_name}</div>
-                <div style={{ fontSize: '13px' }}>{item.customer_phone ? formatPhoneNumber(item.customer_phone) : '-'}</div>
-                <div style={{ fontSize: '13px' }}>{item.manager || item.staff_name || '-'}</div>
-                <div style={{ fontSize: '12px', opacity: 0.75 }}>{item.created_at ? item.created_at.substring(0, 10) : '-'}</div>
-                <div style={{ fontSize: '13px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.notes || '-'}</div>
-
-                <div>
-                  <select
-                    value={item.status}
-                    onChange={(e) => handleStatusChange(item.id, e.target.value)}
-                    style={{
-                      padding: '4px 8px',
-                      borderRadius: '6px',
-                      fontSize: '12px',
-                      fontWeight: '600',
-                      border: '1px solid #d1d5db',
-                      backgroundColor: 
-                        item.status === 'confirmed' ? '#dcfce7' :
-                        item.status === 'cancelled' ? '#fee2e2' :
-                        item.status === 'noshow' ? '#f3e8ff' : '#ffffff',
-                      color: 
-                        item.status === 'confirmed' ? '#166534' :
-                        item.status === 'cancelled' ? '#991b1b' :
-                        item.status === 'noshow' ? '#6b21a8' : '#374151',
-                      cursor: 'pointer'
-                    }}
-                  >
-                    <option value="confirmed">확정</option>
-                    <option value="cancelled">취소</option>
-                    <option value="noshow">노쇼</option>
-                  </select>
-                </div>
-
-                <div style={{ textAlign: 'center' }}>
-                  <button
-                    onClick={() => handleDelete(item.id)}
-                    style={{
-                      padding: '4px 8px',
-                      backgroundColor: 'transparent',
-                      color: '#ef4444',
-                      border: '1px solid #fca5a5',
-                      borderRadius: '4px',
-                      fontSize: '12px',
-                      cursor: 'pointer',
-                    }}
-                  >
-                    삭제
-                  </button>
-                </div>
-              </div>
-            );
-          })
-        )}
-      </div>
+          {/* 디너 예약 테이블 */}
+          {renderReservationTable('디너', dinnerReservations, dinnerSummary, '#6366f1')}
+        </>
+      )}
 
       {/* 수동 예약 등록 모달 팝업 */}
       {isModalOpen && (
@@ -565,7 +628,7 @@ export default function ReservationDashboard() {
             maxWidth: '480px',
             boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)'
           }}>
-            <h2 style={{ marginTop: 0, marginBottom: '16px', fontSize: '18px' }}>예약 등록</h2>
+            <h2 style={{ marginTop: 0, marginBottom: '16px', fontSize: '18px' }}>수동 예약 등록</h2>
             <form onSubmit={handleFormSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
               <div style={{ display: 'flex', gap: '12px' }}>
                 <div style={{ flex: 1 }}>
@@ -598,7 +661,7 @@ export default function ReservationDashboard() {
                     value={formData.customer_name}
                     onChange={(e) => setFormData({ ...formData, customer_name: e.target.value })}
                     style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #ccc' }}
-                    placeholder="고객명 / 회사명"
+                    placeholder="고객명/회사명"
                     required
                   />
                 </div>
@@ -628,7 +691,7 @@ export default function ReservationDashboard() {
                     setFormData({ ...formData, customer_phone: formatted });
                   }}
                   style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #ccc' }}
-                  placeholder="연락처 확인"
+                  placeholder="연락처 확인 필수"
                 />
               </div>
 
@@ -649,7 +712,7 @@ export default function ReservationDashboard() {
                   value={formData.notes}
                   onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
                   style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #ccc', height: '60px' }}
-                  placeholder="점심시간 선주문 안할 경우 음식 제공까지 20분 이상 소요 될 수 있음 안내"
+                  placeholder="선주문 안할 경우 음식 제공까지 20분 이상 소요 될 수 있음 안내"
                 />
               </div>
 
