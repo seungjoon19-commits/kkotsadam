@@ -193,6 +193,12 @@ export default function ReservationDashboard() {
     (item) => item.reservation_date === selectedDate
   );
 
+  // 선택된 날짜의 총 예약 건수 및 총 인원수 계산 (취소 건은 인원수 합산에서 제외)
+  const totalReservationsCount = filteredReservations.length;
+  const totalGuestsCount = filteredReservations
+    .filter((item) => item.status !== 'cancelled')
+    .reduce((sum, item) => sum + (item.party_size ?? item.guest_count ?? 1), 0);
+
   return (
     <div style={{ padding: '24px', maxWidth: '1280px', margin: '0 auto', fontFamily: 'system-ui, -apple-system, sans-serif' }}>
       {/* 상단 헤더 및 기능 영역 */}
@@ -223,12 +229,12 @@ export default function ReservationDashboard() {
               cursor: 'pointer',
             }}
           >
-            + 수동 예약 등록
+            + 예약 등록
           </button>
         </div>
 
-        {/* 날짜 선택 필터 */}
-        <div style={{ marginTop: '20px', display: 'flex', alignItems: 'center', gap: '12px' }}>
+        {/* 날짜 선택 필터 및 예약/인원 총계 표시 */}
+        <div style={{ marginTop: '20px', display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
           <label htmlFor="date-select" style={{ fontSize: '14px', fontWeight: 'bold', color: '#374151' }}>
             날짜 선택:
           </label>
@@ -244,8 +250,8 @@ export default function ReservationDashboard() {
               fontSize: '14px',
             }}
           />
-          <span style={{ fontSize: '14px', color: '#6b7280' }}>
-            (총 <strong style={{ color: '#2563eb' }}>{filteredReservations.length}</strong>건)
+          <span style={{ fontSize: '14px', color: '#4b5563', fontWeight: '500' }}>
+            (예약 <strong style={{ color: '#2563eb' }}>{totalReservationsCount}</strong>건 / 인원 <strong style={{ color: '#2563eb' }}>{totalGuestsCount}</strong>명)
           </span>
         </div>
       </div>
@@ -439,7 +445,7 @@ export default function ReservationDashboard() {
                     value={formData.customer_name}
                     onChange={(e) => setFormData({ ...formData, customer_name: e.target.value })}
                     style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #ccc' }}
-                    placeholder="고객명 / 회사명"
+                    placeholder="홍길동"
                     required
                   />
                 </div>
@@ -469,7 +475,7 @@ export default function ReservationDashboard() {
                     setFormData({ ...formData, customer_phone: formatted });
                   }}
                   style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #ccc' }}
-                  placeholder="전화번호 필수"
+                  placeholder="010-0000-0000 또는 00000000"
                 />
               </div>
 
@@ -490,7 +496,7 @@ export default function ReservationDashboard() {
                   value={formData.notes}
                   onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
                   style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #ccc', height: '60px' }}
-                  placeholder="선주문 확인 / 선주문 안할시 점심시간에는 음식 나오기까지 20분 이상 소요 될 수 있음 설명"
+                  placeholder="창가 자리 희망 등"
                 />
               </div>
 
