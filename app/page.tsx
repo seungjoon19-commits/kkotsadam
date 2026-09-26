@@ -16,7 +16,8 @@ interface Reservation {
   id: string;
   reservation_date: string;
   reservation_time?: string;
-  guest_count: number;
+  guest_count?: number;
+  party_size?: number;
   customer_name: string;
   customer_phone?: string;
   manager?: string;
@@ -40,6 +41,7 @@ export default function ReservationDashboard() {
     reservation_time: '18:00',
     customer_name: '',
     customer_phone: '',
+    party_size: 2,
     guest_count: 2,
     manager: '',
     notes: '',
@@ -100,7 +102,7 @@ export default function ReservationDashboard() {
     }
   };
 
-  // 수동 예약 추가 제출
+  // 수동 예약 추가 제출 (party_size 및 guest_count 모두 매핑)
   const handleFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.customer_name) {
@@ -108,9 +110,15 @@ export default function ReservationDashboard() {
       return;
     }
 
-    const { data, error } = await supabase
+    const payload = {
+      ...formData,
+      party_size: formData.guest_count, // party_size 컬럼 충족
+      guest_count: formData.guest_count,
+    };
+
+    const { error } = await supabase
       .from('reservations')
-      .insert([formData])
+      .insert([payload])
       .select();
 
     if (error) {
@@ -123,6 +131,7 @@ export default function ReservationDashboard() {
         reservation_time: '18:00',
         customer_name: '',
         customer_phone: '',
+        party_size: 2,
         guest_count: 2,
         manager: '',
         notes: '',
@@ -248,7 +257,7 @@ export default function ReservationDashboard() {
               </div>
 
               {/* 2. 인원 */}
-              <div>{item.guest_count}명</div>
+              <div>{item.party_size ?? item.guest_count ?? 1}명</div>
 
               {/* 3. 성함 */}
               <div style={{ fontWeight: '600' }}>{item.customer_name}</div>
@@ -382,7 +391,10 @@ export default function ReservationDashboard() {
                     type="number"
                     min="1"
                     value={formData.guest_count}
-                    onChange={(e) => setFormData({ ...formData, guest_count: Number(e.target.value) })}
+                    onChange={(e) => {
+                      const count = Number(e.target.value);
+                      setFormData({ ...formData, guest_count: count, party_size: count });
+                    }}
                     style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #ccc' }}
                     required
                   />
