@@ -404,7 +404,7 @@ export default function ReservationDashboard() {
             {title}
           </span>
           <h2 style={{ margin: 0, fontSize: '16px', color: '#1e293b', fontWeight: 'bold' }}>
-            {title === '런치' ? '런치 예약 목록 (17:00 이전)' : '디너 예약 목록 (17:00 이후)'}
+            {title === '런치' ? '런치 예약 ' : '디너 예약 '}
           </h2>
         </div>
         <span style={{ fontSize: '13px', color: '#475569', fontWeight: '500' }}>
@@ -550,7 +550,7 @@ export default function ReservationDashboard() {
                 cursor: 'pointer',
               }}
             >
-              + 수동 예약 등록
+              + 예약 등록
             </button>
 
             <button
@@ -628,7 +628,7 @@ export default function ReservationDashboard() {
             maxWidth: '480px',
             boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)'
           }}>
-            <h2 style={{ marginTop: 0, marginBottom: '16px', fontSize: '18px' }}>수동 예약 등록</h2>
+            <h2 style={{ marginTop: 0, marginBottom: '16px', fontSize: '18px' }}>예약 등록</h2>
             <form onSubmit={handleFormSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
               <div style={{ display: 'flex', gap: '12px' }}>
                 <div style={{ flex: 1 }}>
