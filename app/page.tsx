@@ -584,7 +584,7 @@ export default function ReservationDashboard() {
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
           <div>
             <h1 style={{ margin: '0 0 8px 0', fontSize: '24px', color: '#111827', fontWeight: 'bold' }}>
-              예약현황
+              꽃새담 여의도 예약현황
             </h1>
             <p style={{ margin: 0, fontSize: '14px', color: '#6b7280' }}>
               실시간 예약 현황을 한눈에 확인하고 관리하세요. ({user.email})
