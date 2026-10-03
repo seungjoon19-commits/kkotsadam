@@ -55,6 +55,28 @@ const getDayOfWeek = (dateString: string) => {
   return days[date.getDay()];
 };
 
+// 24시간제 시간(HH:mm)을 '오전/오후 HH:mm' 포맷으로 변환하는 함수
+const format12HourTime = (timeString?: string) => {
+  if (!timeString) return '-';
+  const time = timeString.substring(0, 5);
+  const parts = time.split(':');
+  if (parts.length < 2) return time;
+
+  let hour = parseInt(parts[0], 10);
+  const minute = parts[1];
+  if (isNaN(hour)) return time;
+
+  const period = hour < 12 ? '오전' : '오후';
+  if (hour === 0) {
+    hour = 12;
+  } else if (hour > 12) {
+    hour -= 12;
+  }
+
+  const formattedHour = hour < 10 ? `0${hour}` : `${hour}`;
+  return `${period} ${formattedHour}:${minute}`;
+};
+
 // 예약 상태별 행(Row) 스타일 계산 함수
 const getRowStyle = (status: string) => {
   switch (status) {
@@ -96,12 +118,12 @@ export default function ReservationDashboard() {
   );
   const [loading, setLoading] = useState<boolean>(true);
 
-  // 모달 및 수동 예약 등록/수정 폼 상태
+  // 모달 및 예약 등록/수정 폼 상태
   const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     reservation_date: new Date().toISOString().split('T')[0],
-    reservation_time: '18:00',
+    reservation_time: '11:00', // 기본 시간 오전 11시로 설정
     customer_name: '',
     customer_phone: '',
     party_size: 2,
@@ -209,12 +231,12 @@ export default function ReservationDashboard() {
     }
   };
 
-  // 수동 예약 신규 등록 모달 열기
+  // 예약 신규 등록 모달 열기
   const handleOpenCreateModal = () => {
     setEditingId(null);
     setFormData({
       reservation_date: selectedDate,
-      reservation_time: '18:00',
+      reservation_time: '11:00', // 기본값 오전 11:00
       customer_name: '',
       customer_phone: '',
       party_size: 2,
@@ -232,12 +254,12 @@ export default function ReservationDashboard() {
     const guestNum = item.party_size ?? item.guest_count ?? 2;
     setFormData({
       reservation_date: item.reservation_date || selectedDate,
-      reservation_time: item.reservation_time ? item.reservation_time.substring(0, 5) : '18:00',
+      reservation_time: item.reservation_time ? item.reservation_time.substring(0, 5) : '11:00',
       customer_name: item.customer_name || '',
       customer_phone: item.customer_phone || '',
       party_size: guestNum,
       guest_count: guestNum,
-      manager: item.manager || item.staff_name || '',
+      manager: (item.manager || item.staff_name || '').toUpperCase(),
       notes: item.notes || '',
       status: item.status || 'confirmed',
     });
@@ -257,6 +279,7 @@ export default function ReservationDashboard() {
     const payload = {
       ...formData,
       customer_phone: formattedPhone,
+      manager: formData.manager.toUpperCase(), // 대문자 저장 보장
       party_size: formData.guest_count,
       guest_count: formData.guest_count,
     };
@@ -510,7 +533,7 @@ export default function ReservationDashboard() {
               <div>{item.party_size ?? item.guest_count ?? 1}명</div>
               <div style={{ fontWeight: '600' }}>{item.customer_name}</div>
               <div style={{ fontSize: '13px' }}>{item.customer_phone ? formatPhoneNumber(item.customer_phone) : '-'}</div>
-              <div style={{ fontSize: '13px' }}>{item.manager || item.staff_name || '-'}</div>
+              <div style={{ fontSize: '13px', textTransform: 'uppercase' }}>{item.manager || item.staff_name || '-'}</div>
               <div style={{ fontSize: '12px', opacity: 0.75 }}>{item.created_at ? item.created_at.substring(0, 10) : '-'}</div>
               <div style={{ fontSize: '13px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.notes || '-'}</div>
 
@@ -608,7 +631,7 @@ export default function ReservationDashboard() {
                 cursor: 'pointer',
               }}
             >
-              + 수동 예약 등록
+              + 예약 등록
             </button>
 
             <button
@@ -679,7 +702,7 @@ export default function ReservationDashboard() {
         </>
       )}
 
-      {/* 수동 예약 등록 / 수정 모달 팝업 (3줄 레이아웃 적용) */}
+      {/* 예약 등록 / 수정 모달 팝업 */}
       {isModalOpen && (
         <div style={{
           position: 'fixed',
@@ -699,11 +722,11 @@ export default function ReservationDashboard() {
             boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)'
           }}>
             <h2 style={{ marginTop: 0, marginBottom: '20px', fontSize: '18px', color: '#111827' }}>
-              {editingId ? '예약 정보 수정' : '수동 예약 등록'}
+              {editingId ? '예약 정보 수정' : '예약 등록'}
             </h2>
             <form onSubmit={handleFormSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
               
-              {/* [첫 번째 줄] 예약 날짜 / 예약 시간 / 인원수 */}
+              {/* [첫 번째 줄] 예약 날짜 / 예약 시간 (오전/오후 표시) / 인원수 */}
               <div style={{ display: 'flex', gap: '12px' }}>
                 <div style={{ flex: 1.2 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
@@ -727,8 +750,13 @@ export default function ReservationDashboard() {
                   />
                 </div>
 
-                <div style={{ flex: 1 }}>
-                  <label style={{ display: 'block', fontSize: '12px', fontWeight: 'bold', color: '#374151', marginBottom: '4px' }}>예약 시간</label>
+                <div style={{ flex: 1.2 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                    <label style={{ fontSize: '12px', fontWeight: 'bold', color: '#374151' }}>예약 시간</label>
+                    <span style={{ fontSize: '11px', color: '#2563eb', fontWeight: 'bold' }}>
+                      ({format12HourTime(formData.reservation_time)})
+                    </span>
+                  </div>
                   <input
                     type="time"
                     value={formData.reservation_time}
@@ -754,7 +782,7 @@ export default function ReservationDashboard() {
                 </div>
               </div>
 
-              {/* [두 번째 줄] 성함 / 연락처 / 담당자 */}
+              {/* [두 번째 줄] 성함 / 연락처 / 담당자 (자동 대문자 변환) */}
               <div style={{ display: 'flex', gap: '12px' }}>
                 <div style={{ flex: 1 }}>
                   <label style={{ display: 'block', fontSize: '12px', fontWeight: 'bold', color: '#374151', marginBottom: '4px' }}>성함</label>
@@ -763,7 +791,7 @@ export default function ReservationDashboard() {
                     value={formData.customer_name}
                     onChange={(e) => setFormData({ ...formData, customer_name: e.target.value })}
                     style={{ width: '100%', padding: '8px 10px', borderRadius: '6px', border: '1px solid #ccc', boxSizing: 'border-box', fontSize: '13px' }}
-                    placeholder="고객명/기업명"
+                    placeholder="고객명 / 기업명"
                     required
                   />
                 </div>
@@ -787,8 +815,8 @@ export default function ReservationDashboard() {
                   <input
                     type="text"
                     value={formData.manager}
-                    onChange={(e) => setFormData({ ...formData, manager: e.target.value })}
-                    style={{ width: '100%', padding: '8px 10px', borderRadius: '6px', border: '1px solid #ccc', boxSizing: 'border-box', fontSize: '13px' }}
+                    onChange={(e) => setFormData({ ...formData, manager: e.target.value.toUpperCase() })}
+                    style={{ width: '100%', padding: '8px 10px', borderRadius: '6px', border: '1px solid #ccc', boxSizing: 'border-box', fontSize: '13px', textTransform: 'uppercase' }}
                     placeholder="담당 직원 이름"
                   />
                 </div>
