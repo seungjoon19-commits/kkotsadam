@@ -453,7 +453,7 @@ export default function ReservationDashboard() {
             {title}
           </span>
           <h2 style={{ margin: 0, fontSize: '16px', color: '#1e293b', fontWeight: 'bold' }}>
-            {title === '런치' ? '런치 예약 목록 (17:00 이전)' : '디너 예약 목록 (17:00 이후)'}
+            {title === '런치' ? '런치' : '디너'}
           </h2>
         </div>
         <span style={{ fontSize: '13px', color: '#475569', fontWeight: '500' }}>
