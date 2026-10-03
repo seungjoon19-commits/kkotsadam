@@ -28,6 +28,18 @@ interface Reservation {
   status: 'confirmed' | 'cancelled' | 'noshow' | string;
 }
 
+// 고객 집계 데이터 타입
+interface CustomerSummary {
+  phoneKey: string;
+  customer_name: string;
+  customer_phone: string;
+  totalReservations: number;
+  totalGuests: number;
+  noshowCount: number;
+  cancelledCount: number;
+  lastVisitDate: string;
+}
+
 // 전화번호 자동 하이픈 포맷팅 함수
 const formatPhoneNumber = (value: string) => {
   if (!value) return '';
@@ -111,6 +123,10 @@ export default function ReservationDashboard() {
     notes: '',
     status: 'confirmed',
   });
+
+  // 고객 관리 모달 상태
+  const [isCustomerModalOpen, setIsCustomerModalOpen] = useState<boolean>(false);
+  const [customerSearchQuery, setCustomerSearchQuery] = useState<string>('');
 
   // 세션 확인 및 로그인 상태 리스너 등록
   useEffect(() => {
@@ -292,6 +308,45 @@ export default function ReservationDashboard() {
     }
   };
 
+  // 고객 데이터 집계 계산
+  const getCustomerSummaries = (): CustomerSummary[] => {
+    const map: { [key: string]: CustomerSummary } = {};
+
+    reservations.forEach((res) => {
+      const phone = res.customer_phone ? formatPhoneNumber(res.customer_phone) : '미입력';
+      const key = phone !== '미입력' ? phone : `${res.customer_name}_미입력`;
+
+      if (!map[key]) {
+        map[key] = {
+          phoneKey: key,
+          customer_name: res.customer_name,
+          customer_phone: phone,
+          totalReservations: 0,
+          totalGuests: 0,
+          noshowCount: 0,
+          cancelledCount: 0,
+          lastVisitDate: res.reservation_date || '',
+        };
+      }
+
+      map[key].totalReservations += 1;
+
+      if (res.status === 'noshow') {
+        map[key].noshowCount += 1;
+      } else if (res.status === 'cancelled') {
+        map[key].cancelledCount += 1;
+      } else {
+        map[key].totalGuests += (res.party_size ?? res.guest_count ?? 1);
+      }
+
+      if (res.reservation_date && res.reservation_date > map[key].lastVisitDate) {
+        map[key].lastVisitDate = res.reservation_date;
+      }
+    });
+
+    return Object.values(map).sort((a, b) => b.totalReservations - a.totalReservations);
+  };
+
   // 로딩 화면
   if (authLoading) {
     return (
@@ -431,6 +486,12 @@ export default function ReservationDashboard() {
   const lunchSummary = getSummary(lunchReservations);
   const dinnerSummary = getSummary(dinnerReservations);
 
+  // 고객 관리 검색 필터링
+  const customerList = getCustomerSummaries().filter(c => 
+    c.customer_name.toLowerCase().includes(customerSearchQuery.toLowerCase()) ||
+    c.customer_phone.includes(customerSearchQuery)
+  );
+
   // 공통 예약 세션 목록 렌더링 함수
   const renderReservationTable = (title: string, list: Reservation[], summary: { totalCount: number; totalGuests: number }, badgeColor: string) => (
     <div style={{ backgroundColor: '#ffffff', borderRadius: '12px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', overflow: 'hidden', marginBottom: '28px' }}>
@@ -454,7 +515,7 @@ export default function ReservationDashboard() {
             {title}
           </span>
           <h2 style={{ margin: 0, fontSize: '16px', color: '#1e293b', fontWeight: 'bold' }}>
-            {title === '런치' ? '런치 예약' : '디너 예약'}
+            {title === '런치' ? '런치 예약 목록 (17:00 이전)' : '디너 예약 목록 (17:00 이후)'}
           </h2>
         </div>
         <span style={{ fontSize: '13px', color: '#475569', fontWeight: '500' }}>
@@ -614,6 +675,22 @@ export default function ReservationDashboard() {
             </button>
 
             <button
+              onClick={() => setIsCustomerModalOpen(true)}
+              style={{
+                backgroundColor: '#059669',
+                color: '#ffffff',
+                padding: '10px 18px',
+                borderRadius: '8px',
+                border: 'none',
+                fontWeight: '600',
+                fontSize: '14px',
+                cursor: 'pointer',
+              }}
+            >
+              고객 관리
+            </button>
+
+            <button
               onClick={handleLogout}
               style={{
                 backgroundColor: '#f3f4f6',
@@ -631,7 +708,7 @@ export default function ReservationDashboard() {
           </div>
         </div>
 
-        {/* 날짜 선택 필터 ('오늘' 버튼 추가) */}
+        {/* 날짜 선택 필터 */}
         <div style={{ marginTop: '20px', display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
           <label htmlFor="date-select" style={{ fontSize: '14px', fontWeight: 'bold', color: '#374151' }}>
             날짜 선택:
@@ -782,7 +859,7 @@ export default function ReservationDashboard() {
                     value={formData.customer_name}
                     onChange={(e) => setFormData({ ...formData, customer_name: e.target.value })}
                     style={{ width: '100%', padding: '8px 10px', borderRadius: '6px', border: '1px solid #ccc', boxSizing: 'border-box', fontSize: '13px' }}
-                    placeholder="고객명 / 기업명"
+                    placeholder="고객명 / 단체명"
                     required
                   />
                 </div>
@@ -820,7 +897,7 @@ export default function ReservationDashboard() {
                   value={formData.notes}
                   onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
                   style={{ width: '100%', padding: '8px 10px', borderRadius: '6px', border: '1px solid #ccc', height: '65px', boxSizing: 'border-box', fontSize: '13px', resize: 'vertical' }}
-                  placeholder="선주문 안할 경우 음식 제공까지 20분이상 소요 될 수 있음 안내"
+                  placeholder="선주문 안할 경우 음식 제공까지 20분 이상 소요될수있음을 안내"
                 />
               </div>
 
@@ -841,6 +918,126 @@ export default function ReservationDashboard() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* 고객 관리 모달 팝업 */}
+      {isCustomerModalOpen && (
+        <div style={{
+          position: 'fixed',
+          top: 0, left: 0, right: 0, bottom: 0,
+          backgroundColor: 'rgba(0,0,0,0.5)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1000
+        }}>
+          <div style={{
+            backgroundColor: '#ffffff',
+            borderRadius: '12px',
+            padding: '24px',
+            width: '100%',
+            maxWidth: '800px',
+            maxHeight: '85vh',
+            display: 'flex',
+            flexDirection: 'column',
+            boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)'
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+              <div>
+                <h2 style={{ margin: 0, fontSize: '18px', color: '#111827' }}>고객 관리 목록</h2>
+                <p style={{ margin: '4px 0 0 0', fontSize: '13px', color: '#6b7280' }}>
+                  등록된 총 고객: <strong style={{ color: '#059669' }}>{getCustomerSummaries().length}</strong>명
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsCustomerModalOpen(false)}
+                style={{ padding: '6px 12px', borderRadius: '6px', border: '1px solid #d1d5db', backgroundColor: '#fff', cursor: 'pointer', fontSize: '13px' }}
+              >
+                닫기
+              </button>
+            </div>
+
+            {/* 검색창 */}
+            <div style={{ marginBottom: '16px' }}>
+              <input
+                type="text"
+                placeholder="성함 또는 연락처 뒤 4자리 검색..."
+                value={customerSearchQuery}
+                onChange={(e) => setCustomerSearchQuery(e.target.value)}
+                style={{
+                  width: '100%',
+                  padding: '10px 14px',
+                  borderRadius: '8px',
+                  border: '1px solid #d1d5db',
+                  fontSize: '14px',
+                  boxSizing: 'border-box'
+                }}
+              />
+            </div>
+
+            {/* 고객 목록 테이블 */}
+            <div style={{ overflowY: 'auto', flex: 1, border: '1px solid #e5e7eb', borderRadius: '8px' }}>
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: '110px 150px 90px 100px 80px 80px 120px',
+                padding: '12px 16px',
+                backgroundColor: '#f9fafb',
+                borderBottom: '1px solid #e5e7eb',
+                fontSize: '13px',
+                fontWeight: 'bold',
+                color: '#4b5563'
+              }}>
+                <div>성함</div>
+                <div>연락처</div>
+                <div>총 예약</div>
+                <div>누적 인원</div>
+                <div>노쇼</div>
+                <div>취소</div>
+                <div>최근 예약일</div>
+              </div>
+
+              {customerList.length === 0 ? (
+                <div style={{ padding: '32px', textAlign: 'center', color: '#9ca3af', fontSize: '14px' }}>
+                  검색 결과가 없거나 등록된 고객이 없습니다.
+                </div>
+              ) : (
+                customerList.map((customer) => (
+                  <div
+                    key={customer.phoneKey}
+                    style={{
+                      display: 'grid',
+                      gridTemplateColumns: '110px 150px 90px 100px 80px 80px 120px',
+                      padding: '12px 16px',
+                      borderBottom: '1px solid #f3f4f6',
+                      fontSize: '13px',
+                      alignItems: 'center',
+                      color: '#1f2937'
+                    }}
+                  >
+                    <div style={{ fontWeight: '600' }}>{customer.customer_name}</div>
+                    <div style={{ color: '#4b5563' }}>{customer.customer_phone}</div>
+                    <div style={{ fontWeight: 'bold', color: '#2563eb' }}>{customer.totalReservations}회</div>
+                    <div>{customer.totalGuests}명</div>
+                    <div>
+                      {customer.noshowCount > 0 ? (
+                        <span style={{ backgroundColor: '#f3e8ff', color: '#6b21a8', padding: '2px 6px', borderRadius: '4px', fontWeight: 'bold' }}>
+                          {customer.noshowCount}회
+                        </span>
+                      ) : (
+                        <span style={{ color: '#9ca3af' }}>0회</span>
+                      )}
+                    </div>
+                    <div style={{ color: customer.cancelledCount > 0 ? '#ef4444' : '#9ca3af' }}>
+                      {customer.cancelledCount}회
+                    </div>
+                    <div style={{ color: '#6b7280', fontSize: '12px' }}>{customer.lastVisitDate || '-'}</div>
+                  </div>
+                ))
+              )}
+            </div>
           </div>
         </div>
       )}
