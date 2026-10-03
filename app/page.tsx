@@ -46,6 +46,15 @@ const formatPhoneNumber = (value: string) => {
   return value;
 };
 
+// 날짜 문자열(YYYY-MM-DD)을 기반으로 한글 요일을 반환하는 함수
+const getDayOfWeek = (dateString: string) => {
+  if (!dateString) return '';
+  const days = ['일', '월', '화', '수', '목', '금', '토'];
+  const date = new Date(`${dateString}T00:00:00`);
+  if (isNaN(date.getTime())) return '';
+  return days[date.getDay()];
+};
+
 // 예약 상태별 행(Row) 스타일 계산 함수
 const getRowStyle = (status: string) => {
   switch (status) {
@@ -89,7 +98,7 @@ export default function ReservationDashboard() {
 
   // 모달 및 수동 예약 등록/수정 폼 상태
   const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
-  const [editingId, setEditingId] = useState<string | null>(null); // null이면 신규 등록, id가 있으면 수정
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     reservation_date: new Date().toISOString().split('T')[0],
     reservation_time: '18:00',
@@ -171,7 +180,7 @@ export default function ReservationDashboard() {
     await supabase.auth.signOut();
   };
 
-  // 예약 상태 변경 함수 (드롭다운)
+  // 예약 상태 변경 함수
   const handleStatusChange = async (id: string, newStatus: string) => {
     const { error } = await supabase
       .from('reservations')
@@ -200,7 +209,7 @@ export default function ReservationDashboard() {
     }
   };
 
-  // 수동 예약 신규 등록 버튼 클릭
+  // 수동 예약 신규 등록 모달 열기
   const handleOpenCreateModal = () => {
     setEditingId(null);
     setFormData({
@@ -217,7 +226,7 @@ export default function ReservationDashboard() {
     setIsModalOpen(true);
   };
 
-  // 예약 수정 버튼 클릭 시 기존 정보 불러오기
+  // 예약 수정 모달 열기
   const handleOpenEditModal = (item: Reservation) => {
     setEditingId(item.id);
     const guestNum = item.party_size ?? item.guest_count ?? 2;
@@ -235,7 +244,7 @@ export default function ReservationDashboard() {
     setIsModalOpen(true);
   };
 
-  // 폼 제출 처리 (신규 등록 / 수정 구분)
+  // 폼 제출 (등록/수정)
   const handleFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.customer_name) {
@@ -253,7 +262,6 @@ export default function ReservationDashboard() {
     };
 
     if (editingId) {
-      // 수정 처리
       const { error } = await supabase
         .from('reservations')
         .update(payload)
@@ -267,7 +275,6 @@ export default function ReservationDashboard() {
         fetchReservations();
       }
     } else {
-      // 신규 등록 처리
       const { error } = await supabase
         .from('reservations')
         .insert([payload])
@@ -292,7 +299,7 @@ export default function ReservationDashboard() {
     );
   }
 
-  // 1. 로그인 화면 (비로그인 시)
+  // 1. 로그인 화면
   if (!user) {
     return (
       <div style={{ 
@@ -391,12 +398,12 @@ export default function ReservationDashboard() {
     );
   }
 
-  // 선택된 날짜의 예약 필터링
+  // 선택된 날짜 필터링
   const filteredReservations = reservations.filter(
     (item) => item.reservation_date === selectedDate
   );
 
-  // 17시 기준으로 런치 / 디너 분리
+  // 런치 / 디너 분리
   const lunchReservations = filteredReservations.filter((item) => {
     if (!item.reservation_time) return true;
     const hour = parseInt(item.reservation_time.substring(0, 2), 10);
@@ -409,7 +416,7 @@ export default function ReservationDashboard() {
     return hour >= 17;
   });
 
-  // 요약 통계 계산
+  // 요약 정보 계산
   const getSummary = (list: Reservation[]) => {
     const totalCount = list.length;
     const totalGuests = list
@@ -425,7 +432,6 @@ export default function ReservationDashboard() {
   // 공통 예약 세션 목록 렌더링 함수
   const renderReservationTable = (title: string, list: Reservation[], summary: { totalCount: number; totalGuests: number }, badgeColor: string) => (
     <div style={{ backgroundColor: '#ffffff', borderRadius: '12px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', overflow: 'hidden', marginBottom: '28px' }}>
-      {/* 세션 제목 및 요약 헤더 */}
       <div style={{ 
         padding: '14px 20px', 
         backgroundColor: '#f8fafc', 
@@ -446,7 +452,7 @@ export default function ReservationDashboard() {
             {title}
           </span>
           <h2 style={{ margin: 0, fontSize: '16px', color: '#1e293b', fontWeight: 'bold' }}>
-            {title === '런치' ? '런치 예약 ' : '디너 예약 '}
+            {title === '런치' ? '런치 예약 목록 (17:00 이전)' : '디너 예약 목록 (17:00 이후)'}
           </h2>
         </div>
         <span style={{ fontSize: '13px', color: '#475569', fontWeight: '500' }}>
@@ -454,7 +460,6 @@ export default function ReservationDashboard() {
         </span>
       </div>
 
-      {/* 컬럼 헤더 행 */}
       <div style={{ 
         display: 'grid', 
         gridTemplateColumns: '70px 60px 90px 140px 90px 110px 1fr 100px 110px', 
@@ -477,7 +482,6 @@ export default function ReservationDashboard() {
         <div style={{ textAlign: 'center' }}>관리</div>
       </div>
 
-      {/* 목록 데이터 출력 */}
       {list.length === 0 ? (
         <div style={{ padding: '24px', textAlign: 'center', color: '#94a3b8', fontSize: '14px' }}>
           {title} 예약 내역이 없습니다.
@@ -537,7 +541,6 @@ export default function ReservationDashboard() {
                 </select>
               </div>
 
-              {/* 관리 버튼 영역 (수정 / 삭제) */}
               <div style={{ textAlign: 'center', display: 'flex', gap: '4px', justifyContent: 'center' }}>
                 <button
                   onClick={() => handleOpenEditModal(item)}
@@ -576,15 +579,15 @@ export default function ReservationDashboard() {
     </div>
   );
 
-  // 2. 예약현황 대시보드 화면 (로그인 완료 시)
+  // 2. 메인 예약현황 대시보드 화면
   return (
     <div style={{ padding: '24px', maxWidth: '1280px', margin: '0 auto', fontFamily: 'system-ui, -apple-system, sans-serif' }}>
-      {/* 상단 헤더 및 기능 영역 */}
+      {/* 상단 헤더 영역 */}
       <div style={{ backgroundColor: '#ffffff', padding: '24px', borderRadius: '12px', marginBottom: '20px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
           <div>
             <h1 style={{ margin: '0 0 8px 0', fontSize: '24px', color: '#111827', fontWeight: 'bold' }}>
-              꽃새담 여의도 예약현황
+              예약현황
             </h1>
             <p style={{ margin: 0, fontSize: '14px', color: '#6b7280' }}>
               실시간 예약 현황을 한눈에 확인하고 관리하세요. ({user.email})
@@ -605,7 +608,7 @@ export default function ReservationDashboard() {
                 cursor: 'pointer',
               }}
             >
-              + 예약 등록
+              + 수동 예약 등록
             </button>
 
             <button
@@ -626,45 +629,57 @@ export default function ReservationDashboard() {
           </div>
         </div>
 
-        {/* 날짜 선택 필터 및 예약/인원 총계 표시 */}
+        {/* 날짜 선택 필터 */}
         <div style={{ marginTop: '20px', display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
           <label htmlFor="date-select" style={{ fontSize: '14px', fontWeight: 'bold', color: '#374151' }}>
             날짜 선택:
           </label>
-          <input
-            id="date-select"
-            type="date"
-            value={selectedDate}
-            onChange={(e) => setSelectedDate(e.target.value)}
-            style={{
-              padding: '8px 12px',
-              borderRadius: '6px',
-              border: '1px solid #d1d5db',
-              fontSize: '14px',
-            }}
-          />
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <input
+              id="date-select"
+              type="date"
+              value={selectedDate}
+              onChange={(e) => setSelectedDate(e.target.value)}
+              style={{
+                padding: '8px 12px',
+                borderRadius: '6px',
+                border: '1px solid #d1d5db',
+                fontSize: '14px',
+              }}
+            />
+            {selectedDate && (
+              <span style={{ 
+                fontSize: '14px', 
+                fontWeight: 'bold', 
+                color: getDayOfWeek(selectedDate) === '토' ? '#2563eb' : getDayOfWeek(selectedDate) === '일' ? '#ef4444' : '#1f2937',
+                backgroundColor: '#f3f4f6',
+                padding: '6px 10px',
+                borderRadius: '6px',
+                border: '1px solid #e5e7eb'
+              }}>
+                ({getDayOfWeek(selectedDate)}요일)
+              </span>
+            )}
+          </div>
           <span style={{ fontSize: '14px', color: '#4b5563', fontWeight: '500' }}>
             [전체] (예약 <strong style={{ color: '#2563eb' }}>{totalSummary.totalCount}</strong>건 / 인원 <strong style={{ color: '#2563eb' }}>{totalSummary.totalGuests}</strong>명)
           </span>
         </div>
       </div>
 
-      {/* 예약 목록 섹션 (런치 / 디너 분리) */}
+      {/* 예약 목록 영역 (런치 / 디너) */}
       {loading ? (
         <div style={{ backgroundColor: '#ffffff', padding: '32px', borderRadius: '12px', textAlign: 'center', color: '#6b7280', fontSize: '14px' }}>
           예약 내역을 불러오는 중입니다...
         </div>
       ) : (
         <>
-          {/* 런치 예약 테이블 */}
           {renderReservationTable('런치', lunchReservations, lunchSummary, '#f59e0b')}
-
-          {/* 디너 예약 테이블 */}
           {renderReservationTable('디너', dinnerReservations, dinnerSummary, '#6366f1')}
         </>
       )}
 
-      {/* 수동 예약 등록 / 수정 모달 팝업 */}
+      {/* 수동 예약 등록 / 수정 모달 팝업 (3줄 레이아웃 적용) */}
       {isModalOpen && (
         <div style={{
           position: 'fixed',
@@ -680,50 +695,51 @@ export default function ReservationDashboard() {
             borderRadius: '12px',
             padding: '24px',
             width: '100%',
-            maxWidth: '480px',
+            maxWidth: '560px',
             boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)'
           }}>
-            <h2 style={{ marginTop: 0, marginBottom: '16px', fontSize: '18px' }}>
-              {editingId ? '예약 정보 수정' : '예약 등록'}
+            <h2 style={{ marginTop: 0, marginBottom: '20px', fontSize: '18px', color: '#111827' }}>
+              {editingId ? '예약 정보 수정' : '수동 예약 등록'}
             </h2>
-            <form onSubmit={handleFormSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            <form onSubmit={handleFormSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              
+              {/* [첫 번째 줄] 예약 날짜 / 예약 시간 / 인원수 */}
               <div style={{ display: 'flex', gap: '12px' }}>
-                <div style={{ flex: 1 }}>
-                  <label style={{ display: 'block', fontSize: '12px', fontWeight: 'bold', marginBottom: '4px' }}>예약 날짜</label>
+                <div style={{ flex: 1.2 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                    <label style={{ fontSize: '12px', fontWeight: 'bold', color: '#374151' }}>예약 날짜</label>
+                    {formData.reservation_date && (
+                      <span style={{ 
+                        fontSize: '12px', 
+                        fontWeight: 'bold', 
+                        color: getDayOfWeek(formData.reservation_date) === '토' ? '#2563eb' : getDayOfWeek(formData.reservation_date) === '일' ? '#ef4444' : '#4b5563'
+                      }}>
+                        ({getDayOfWeek(formData.reservation_date)}요일)
+                      </span>
+                    )}
+                  </div>
                   <input
                     type="date"
                     value={formData.reservation_date}
                     onChange={(e) => setFormData({ ...formData, reservation_date: e.target.value })}
-                    style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #ccc' }}
+                    style={{ width: '100%', padding: '8px 10px', borderRadius: '6px', border: '1px solid #ccc', boxSizing: 'border-box', fontSize: '13px' }}
                     required
                   />
                 </div>
+
                 <div style={{ flex: 1 }}>
-                  <label style={{ display: 'block', fontSize: '12px', fontWeight: 'bold', marginBottom: '4px' }}>예약 시간</label>
+                  <label style={{ display: 'block', fontSize: '12px', fontWeight: 'bold', color: '#374151', marginBottom: '4px' }}>예약 시간</label>
                   <input
                     type="time"
                     value={formData.reservation_time}
                     onChange={(e) => setFormData({ ...formData, reservation_time: e.target.value })}
-                    style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #ccc' }}
+                    style={{ width: '100%', padding: '8px 10px', borderRadius: '6px', border: '1px solid #ccc', boxSizing: 'border-box', fontSize: '13px' }}
                     required
                   />
                 </div>
-              </div>
 
-              <div style={{ display: 'flex', gap: '12px' }}>
-                <div style={{ flex: 1 }}>
-                  <label style={{ display: 'block', fontSize: '12px', fontWeight: 'bold', marginBottom: '4px' }}>성함</label>
-                  <input
-                    type="text"
-                    value={formData.customer_name}
-                    onChange={(e) => setFormData({ ...formData, customer_name: e.target.value })}
-                    style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #ccc' }}
-                    placeholder="고객명/기업명"
-                    required
-                  />
-                </div>
-                <div style={{ flex: 1 }}>
-                  <label style={{ display: 'block', fontSize: '12px', fontWeight: 'bold', marginBottom: '4px' }}>인원수</label>
+                <div style={{ flex: 0.8 }}>
+                  <label style={{ display: 'block', fontSize: '12px', fontWeight: 'bold', color: '#374151', marginBottom: '4px' }}>인원수</label>
                   <input
                     type="number"
                     min="1"
@@ -732,58 +748,75 @@ export default function ReservationDashboard() {
                       const count = Number(e.target.value);
                       setFormData({ ...formData, guest_count: count, party_size: count });
                     }}
-                    style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #ccc' }}
+                    style={{ width: '100%', padding: '8px 10px', borderRadius: '6px', border: '1px solid #ccc', boxSizing: 'border-box', fontSize: '13px' }}
                     required
                   />
                 </div>
               </div>
 
-              <div>
-                <label style={{ display: 'block', fontSize: '12px', fontWeight: 'bold', marginBottom: '4px' }}>연락처</label>
-                <input
-                  type="text"
-                  value={formData.customer_phone}
-                  onChange={(e) => {
-                    const formatted = formatPhoneNumber(e.target.value);
-                    setFormData({ ...formData, customer_phone: formatted });
-                  }}
-                  style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #ccc' }}
-                  placeholder="연락처 확인 필수"
-                />
+              {/* [두 번째 줄] 성함 / 연락처 / 담당자 */}
+              <div style={{ display: 'flex', gap: '12px' }}>
+                <div style={{ flex: 1 }}>
+                  <label style={{ display: 'block', fontSize: '12px', fontWeight: 'bold', color: '#374151', marginBottom: '4px' }}>성함</label>
+                  <input
+                    type="text"
+                    value={formData.customer_name}
+                    onChange={(e) => setFormData({ ...formData, customer_name: e.target.value })}
+                    style={{ width: '100%', padding: '8px 10px', borderRadius: '6px', border: '1px solid #ccc', boxSizing: 'border-box', fontSize: '13px' }}
+                    placeholder="고객명/기업명"
+                    required
+                  />
+                </div>
+
+                <div style={{ flex: 1.2 }}>
+                  <label style={{ display: 'block', fontSize: '12px', fontWeight: 'bold', color: '#374151', marginBottom: '4px' }}>연락처</label>
+                  <input
+                    type="text"
+                    value={formData.customer_phone}
+                    onChange={(e) => {
+                      const formatted = formatPhoneNumber(e.target.value);
+                      setFormData({ ...formData, customer_phone: formatted });
+                    }}
+                    style={{ width: '100%', padding: '8px 10px', borderRadius: '6px', border: '1px solid #ccc', boxSizing: 'border-box', fontSize: '13px' }}
+                    placeholder="연락처 확인 필수"
+                  />
+                </div>
+
+                <div style={{ flex: 1 }}>
+                  <label style={{ display: 'block', fontSize: '12px', fontWeight: 'bold', color: '#374151', marginBottom: '4px' }}>담당자</label>
+                  <input
+                    type="text"
+                    value={formData.manager}
+                    onChange={(e) => setFormData({ ...formData, manager: e.target.value })}
+                    style={{ width: '100%', padding: '8px 10px', borderRadius: '6px', border: '1px solid #ccc', boxSizing: 'border-box', fontSize: '13px' }}
+                    placeholder="담당 직원 이름"
+                  />
+                </div>
               </div>
 
+              {/* [세 번째 줄] 요청사항 / 메모 */}
               <div>
-                <label style={{ display: 'block', fontSize: '12px', fontWeight: 'bold', marginBottom: '4px' }}>담당자</label>
-                <input
-                  type="text"
-                  value={formData.manager}
-                  onChange={(e) => setFormData({ ...formData, manager: e.target.value })}
-                  style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #ccc' }}
-                  placeholder="담당 직원 이름"
-                />
-              </div>
-
-              <div>
-                <label style={{ display: 'block', fontSize: '12px', fontWeight: 'bold', marginBottom: '4px' }}>요청사항 / 메모</label>
+                <label style={{ display: 'block', fontSize: '12px', fontWeight: 'bold', color: '#374151', marginBottom: '4px' }}>요청사항 / 메모</label>
                 <textarea
                   value={formData.notes}
                   onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                  style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #ccc', height: '60px' }}
+                  style={{ width: '100%', padding: '8px 10px', borderRadius: '6px', border: '1px solid #ccc', height: '65px', boxSizing: 'border-box', fontSize: '13px', resize: 'vertical' }}
                   placeholder="선주문 안할 경우 음식 제공까지 20분 이상 소요 될 수 있음 안내"
                 />
               </div>
 
-              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '12px' }}>
+              {/* 하단 버튼 영역 */}
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '8px' }}>
                 <button
                   type="button"
                   onClick={() => setIsModalOpen(false)}
-                  style={{ padding: '8px 16px', borderRadius: '6px', border: '1px solid #ccc', backgroundColor: '#fff', cursor: 'pointer' }}
+                  style={{ padding: '8px 16px', borderRadius: '6px', border: '1px solid #d1d5db', backgroundColor: '#fff', cursor: 'pointer', fontSize: '13px' }}
                 >
                   취소
                 </button>
                 <button
                   type="submit"
-                  style={{ padding: '8px 16px', borderRadius: '6px', border: 'none', backgroundColor: '#2563eb', color: '#fff', fontWeight: 'bold', cursor: 'pointer' }}
+                  style={{ padding: '8px 16px', borderRadius: '6px', border: 'none', backgroundColor: '#2563eb', color: '#fff', fontWeight: 'bold', cursor: 'pointer', fontSize: '13px' }}
                 >
                   {editingId ? '수정 완료' : '저장'}
                 </button>
