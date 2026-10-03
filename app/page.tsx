@@ -308,7 +308,7 @@ export default function ReservationDashboard() {
     }
   };
 
-  // 고객 데이터 집계 계산
+  // 고객 데이터 집계 계산 (최근 예약일 순 정렬)
   const getCustomerSummaries = (): CustomerSummary[] => {
     const map: { [key: string]: CustomerSummary } = {};
 
@@ -344,7 +344,39 @@ export default function ReservationDashboard() {
       }
     });
 
-    return Object.values(map).sort((a, b) => b.totalReservations - a.totalReservations);
+    return Object.values(map).sort((a, b) => b.lastVisitDate.localeCompare(a.lastVisitDate));
+  };
+
+  // 고객 관리 목록 엑셀(CSV) 다운로드 함수
+  const exportCustomersToExcel = (dataList: CustomerSummary[]) => {
+    if (dataList.length === 0) {
+      alert('다운로드할 고객 데이터가 없습니다.');
+      return;
+    }
+
+    const headers = ['최근 예약일', '성함', '연락처', '총 예약', '누적 인원', '노쇼 횟수', '취소 횟수'];
+    const rows = dataList.map((item) => [
+      item.lastVisitDate || '-',
+      `"${item.customer_name}"`,
+      `"${item.customer_phone}"`,
+      `${item.totalReservations}회`,
+      `${item.totalGuests}명`,
+      `${item.noshowCount}회`,
+      `${item.cancelledCount}회`,
+    ]);
+
+    const csvContent =
+      '\uFEFF' +
+      [headers.join(','), ...rows.map((row) => row.join(','))].join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `고객_목록_${getTodayString()}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
   // 로딩 화면
@@ -515,7 +547,7 @@ export default function ReservationDashboard() {
             {title}
           </span>
           <h2 style={{ margin: 0, fontSize: '16px', color: '#1e293b', fontWeight: 'bold' }}>
-            {title === '런치' ? '런치 예약 목록 (17:00 이전)' : '디너 예약 목록 (17:00 이후)'}
+            {title === '런치' ? '런치 예약' : '디너 예약'}
           </h2>
         </div>
         <span style={{ fontSize: '13px', color: '#475569', fontWeight: '500' }}>
@@ -897,7 +929,7 @@ export default function ReservationDashboard() {
                   value={formData.notes}
                   onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
                   style={{ width: '100%', padding: '8px 10px', borderRadius: '6px', border: '1px solid #ccc', height: '65px', boxSizing: 'border-box', fontSize: '13px', resize: 'vertical' }}
-                  placeholder="선주문 안할 경우 음식 제공까지 20분 이상 소요될수있음을 안내"
+                  placeholder="선주문 안할 경우 음식 제공까지 20분 이상 소요 될 수 있음을 안내"
                 />
               </div>
 
@@ -938,7 +970,7 @@ export default function ReservationDashboard() {
             borderRadius: '12px',
             padding: '24px',
             width: '100%',
-            maxWidth: '800px',
+            maxWidth: '820px',
             maxHeight: '85vh',
             display: 'flex',
             flexDirection: 'column',
@@ -951,13 +983,31 @@ export default function ReservationDashboard() {
                   등록된 총 고객: <strong style={{ color: '#059669' }}>{getCustomerSummaries().length}</strong>명
                 </p>
               </div>
-              <button
-                type="button"
-                onClick={() => setIsCustomerModalOpen(false)}
-                style={{ padding: '6px 12px', borderRadius: '6px', border: '1px solid #d1d5db', backgroundColor: '#fff', cursor: 'pointer', fontSize: '13px' }}
-              >
-                닫기
-              </button>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <button
+                  type="button"
+                  onClick={() => exportCustomersToExcel(customerList)}
+                  style={{
+                    padding: '7px 14px',
+                    borderRadius: '6px',
+                    border: 'none',
+                    backgroundColor: '#10b981',
+                    color: '#ffffff',
+                    fontWeight: 'bold',
+                    cursor: 'pointer',
+                    fontSize: '13px'
+                  }}
+                >
+                  📊 엑셀 다운로드
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsCustomerModalOpen(false)}
+                  style={{ padding: '7px 14px', borderRadius: '6px', border: '1px solid #d1d5db', backgroundColor: '#fff', cursor: 'pointer', fontSize: '13px' }}
+                >
+                  닫기
+                </button>
+              </div>
             </div>
 
             {/* 검색창 */}
@@ -982,7 +1032,7 @@ export default function ReservationDashboard() {
             <div style={{ overflowY: 'auto', flex: 1, border: '1px solid #e5e7eb', borderRadius: '8px' }}>
               <div style={{
                 display: 'grid',
-                gridTemplateColumns: '110px 150px 90px 100px 80px 80px 120px',
+                gridTemplateColumns: '120px 110px 150px 90px 100px 80px 80px',
                 padding: '12px 16px',
                 backgroundColor: '#f9fafb',
                 borderBottom: '1px solid #e5e7eb',
@@ -990,13 +1040,13 @@ export default function ReservationDashboard() {
                 fontWeight: 'bold',
                 color: '#4b5563'
               }}>
+                <div>최근 예약일</div>
                 <div>성함</div>
                 <div>연락처</div>
                 <div>총 예약</div>
                 <div>누적 인원</div>
                 <div>노쇼</div>
                 <div>취소</div>
-                <div>최근 예약일</div>
               </div>
 
               {customerList.length === 0 ? (
@@ -1009,7 +1059,7 @@ export default function ReservationDashboard() {
                     key={customer.phoneKey}
                     style={{
                       display: 'grid',
-                      gridTemplateColumns: '110px 150px 90px 100px 80px 80px 120px',
+                      gridTemplateColumns: '120px 110px 150px 90px 100px 80px 80px',
                       padding: '12px 16px',
                       borderBottom: '1px solid #f3f4f6',
                       fontSize: '13px',
@@ -1017,9 +1067,10 @@ export default function ReservationDashboard() {
                       color: '#1f2937'
                     }}
                   >
+                    <div style={{ color: '#2563eb', fontWeight: '600', fontSize: '12px' }}>{customer.lastVisitDate || '-'}</div>
                     <div style={{ fontWeight: '600' }}>{customer.customer_name}</div>
                     <div style={{ color: '#4b5563' }}>{customer.customer_phone}</div>
-                    <div style={{ fontWeight: 'bold', color: '#2563eb' }}>{customer.totalReservations}회</div>
+                    <div style={{ fontWeight: 'bold', color: '#111827' }}>{customer.totalReservations}회</div>
                     <div>{customer.totalGuests}명</div>
                     <div>
                       {customer.noshowCount > 0 ? (
@@ -1033,7 +1084,6 @@ export default function ReservationDashboard() {
                     <div style={{ color: customer.cancelledCount > 0 ? '#ef4444' : '#9ca3af' }}>
                       {customer.cancelledCount}회
                     </div>
-                    <div style={{ color: '#6b7280', fontSize: '12px' }}>{customer.lastVisitDate || '-'}</div>
                   </div>
                 ))
               )}
