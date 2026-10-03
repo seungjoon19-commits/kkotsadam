@@ -89,18 +89,19 @@ export default function ReservationDashboard() {
   const [loginError, setLoginError] = useState<string>('');
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
 
+  // 오늘 날짜 구하기 (YYYY-MM-DD)
+  const getTodayString = () => new Date().toISOString().split('T')[0];
+
   // 예약 관련 상태
   const [reservations, setReservations] = useState<Reservation[]>([]);
-  const [selectedDate, setSelectedDate] = useState<string>(
-    new Date().toISOString().split('T')[0]
-  );
+  const [selectedDate, setSelectedDate] = useState<string>(getTodayString());
   const [loading, setLoading] = useState<boolean>(true);
 
   // 모달 및 예약 등록/수정 폼 상태
   const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [formData, setFormData] = useState({
-    reservation_date: new Date().toISOString().split('T')[0],
+    reservation_date: getTodayString(),
     reservation_time: '11:00',
     customer_name: '',
     customer_phone: '',
@@ -453,7 +454,7 @@ export default function ReservationDashboard() {
             {title}
           </span>
           <h2 style={{ margin: 0, fontSize: '16px', color: '#1e293b', fontWeight: 'bold' }}>
-            {title === '런치' ? '런치' : '디너'}
+            {title === '런치' ? '런치 예약 목록 (17:00 이전)' : '디너 예약 목록 (17:00 이후)'}
           </h2>
         </div>
         <span style={{ fontSize: '13px', color: '#475569', fontWeight: '500' }}>
@@ -630,12 +631,12 @@ export default function ReservationDashboard() {
           </div>
         </div>
 
-        {/* 날짜 선택 필터 */}
+        {/* 날짜 선택 필터 ('오늘' 버튼 추가) */}
         <div style={{ marginTop: '20px', display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
           <label htmlFor="date-select" style={{ fontSize: '14px', fontWeight: 'bold', color: '#374151' }}>
             날짜 선택:
           </label>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <input
               id="date-select"
               type="date"
@@ -661,6 +662,23 @@ export default function ReservationDashboard() {
                 ({getDayOfWeek(selectedDate)}요일)
               </span>
             )}
+            <button
+              type="button"
+              onClick={() => setSelectedDate(getTodayString())}
+              style={{
+                padding: '7px 14px',
+                backgroundColor: '#ffffff',
+                color: '#374151',
+                border: '1px solid #d1d5db',
+                borderRadius: '6px',
+                fontSize: '13px',
+                fontWeight: '600',
+                cursor: 'pointer',
+                boxShadow: '0 1px 2px rgba(0, 0, 0, 0.05)'
+              }}
+            >
+              오늘
+            </button>
           </div>
           <span style={{ fontSize: '14px', color: '#4b5563', fontWeight: '500' }}>
             [전체] (예약 <strong style={{ color: '#2563eb' }}>{totalSummary.totalCount}</strong>건 / 인원 <strong style={{ color: '#2563eb' }}>{totalSummary.totalGuests}</strong>명)
@@ -802,7 +820,7 @@ export default function ReservationDashboard() {
                   value={formData.notes}
                   onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
                   style={{ width: '100%', padding: '8px 10px', borderRadius: '6px', border: '1px solid #ccc', height: '65px', boxSizing: 'border-box', fontSize: '13px', resize: 'vertical' }}
-                  placeholder="선주문 안할 경우 음식 제공까지 20분 이상 소요 될 수 있음 안내"
+                  placeholder="선주문 안할 경우 음식 제공까지 20분이상 소요 될 수 있음 안내"
                 />
               </div>
 
