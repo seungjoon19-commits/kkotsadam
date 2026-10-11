@@ -68,7 +68,7 @@ const getDayOfWeek = (dateString: string) => {
   return days[date.getDay()];
 };
 
-// 정확하게 YYYY-MM-DD 기준 ±N일 계산하는 함수 (시차 및 이틀 이동 오류 해결)
+// 정확하게 YYYY-MM-DD 기준 ±N일 계산하는 함수
 const shiftDate = (currentDateStr: string, offsetDays: number) => {
   if (!currentDateStr) return currentDateStr;
   const parts = currentDateStr.split('-').map(Number);
@@ -160,7 +160,7 @@ export default function ReservationDashboard() {
     setSelectedDate((current) => shiftDate(current, 1));
   }, []);
 
-  // 키보드 방향키 이동 이벤트 리스너 (모달이 닫혀있고 입력 요소에 포커스가 없을 때만 작동)
+  // 키보드 방향키 이동 이벤트 리스너
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (isModalOpen || isCustomerModalOpen) return;
@@ -952,7 +952,13 @@ export default function ReservationDashboard() {
                   <input
                     type="date"
                     value={formData.reservation_date}
-                    onChange={(e) => setFormData({ ...formData, reservation_date: e.target.value })}
+                    onChange={(e) => {
+                      const newDate = e.target.value;
+                      setFormData({ ...formData, reservation_date: newDate });
+                      if (newDate) {
+                        setSelectedDate(newDate); // 팝업 내 날짜 변경 시 메인 대시보드 날짜도 동기화
+                      }
+                    }}
                     style={{ width: '100%', padding: '8px 10px', borderRadius: '6px', border: '1px solid #ccc', boxSizing: 'border-box', fontSize: '13px' }}
                     required
                   />
