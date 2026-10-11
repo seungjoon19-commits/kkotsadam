@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { createClient } from '@supabase/supabase-js';
 import { User } from '@supabase/supabase-js';
 
@@ -67,6 +67,14 @@ const getDayOfWeek = (dateString: string) => {
   return days[date.getDay()];
 };
 
+// 날짜 이동 함수 (offset일 추가/감소 후 YYYY-MM-DD 문자열 반환)
+const shiftDate = (currentDateStr: string, offsetDays: number) => {
+  const date = new Date(`${currentDateStr}T00:00:00`);
+  if (isNaN(date.getTime())) return currentDateStr;
+  date.setDate(date.getDate() + offsetDays);
+  return date.toISOString().split('T')[0];
+};
+
 // 예약 상태별 행(Row) 스타일 계산 함수
 const getRowStyle = (status: string) => {
   switch (status) {
@@ -127,6 +135,44 @@ export default function ReservationDashboard() {
   // 고객 관리 모달 상태
   const [isCustomerModalOpen, setIsCustomerModalOpen] = useState<boolean>(false);
   const [customerSearchQuery, setCustomerSearchQuery] = useState<string>('');
+
+  // 날짜 변경 핸들러
+  const handlePrevDay = useCallback(() => {
+    setSelectedDate((prev) => shiftDate(prev, -1));
+  }, []);
+
+  const handleNextDay = useCallback(() => {
+    setSelectedDate((prev) => shiftDate(prev, 1));
+  }, []);
+
+  // 키보드 방향키 이동 이벤트 리스너 (모달이 닫혀있고 입력 요소에 포커스가 없을 때만 작동)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (isModalOpen || isCustomerModalOpen) return;
+
+      const activeElement = document.activeElement;
+      const isInputFocused =
+        activeElement &&
+        (activeElement.tagName === 'INPUT' ||
+          activeElement.tagName === 'TEXTAREA' ||
+          activeElement.tagName === 'SELECT');
+
+      if (isInputFocused) return;
+
+      if (e.key === 'ArrowLeft') {
+        e.preventDefault();
+        handlePrevDay();
+      } else if (e.key === 'ArrowRight') {
+        e.preventDefault();
+        handleNextDay();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isModalOpen, isCustomerModalOpen, handlePrevDay, handleNextDay]);
 
   // 세션 확인 및 로그인 상태 리스너 등록
   useEffect(() => {
@@ -740,12 +786,12 @@ export default function ReservationDashboard() {
           </div>
         </div>
 
-        {/* 날짜 선택 필터 */}
+        {/* 날짜 선택 및 내비게이션 영역 (◀ 오늘 ▶ 및 좌우 키보드 탐색) */}
         <div style={{ marginTop: '20px', display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
           <label htmlFor="date-select" style={{ fontSize: '14px', fontWeight: 'bold', color: '#374151' }}>
             날짜 선택:
           </label>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
             <input
               id="date-select"
               type="date"
@@ -771,6 +817,28 @@ export default function ReservationDashboard() {
                 ({getDayOfWeek(selectedDate)}요일)
               </span>
             )}
+
+            {/* 어제 이동 버튼 */}
+            <button
+              type="button"
+              onClick={handlePrevDay}
+              title="어제 날짜로 이동 (키보드 ◀ 방향키)"
+              style={{
+                padding: '7px 12px',
+                backgroundColor: '#ffffff',
+                color: '#374151',
+                border: '1px solid #d1d5db',
+                borderRadius: '6px',
+                fontSize: '13px',
+                fontWeight: 'bold',
+                cursor: 'pointer',
+                boxShadow: '0 1px 2px rgba(0, 0, 0, 0.05)'
+              }}
+            >
+              ◀
+            </button>
+
+            {/* 오늘 이동 버튼 */}
             <button
               type="button"
               onClick={() => setSelectedDate(getTodayString())}
@@ -787,6 +855,26 @@ export default function ReservationDashboard() {
               }}
             >
               오늘
+            </button>
+
+            {/* 내일 이동 버튼 */}
+            <button
+              type="button"
+              onClick={handleNextDay}
+              title="내일 날짜로 이동 (키보드 ▶ 방향키)"
+              style={{
+                padding: '7px 12px',
+                backgroundColor: '#ffffff',
+                color: '#374151',
+                border: '1px solid #d1d5db',
+                borderRadius: '6px',
+                fontSize: '13px',
+                fontWeight: 'bold',
+                cursor: 'pointer',
+                boxShadow: '0 1px 2px rgba(0, 0, 0, 0.05)'
+              }}
+            >
+              ▶
             </button>
           </div>
           <span style={{ fontSize: '14px', color: '#4b5563', fontWeight: '500' }}>
