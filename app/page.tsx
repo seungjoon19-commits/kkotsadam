@@ -62,17 +62,26 @@ const formatPhoneNumber = (value: string) => {
 const getDayOfWeek = (dateString: string) => {
   if (!dateString) return '';
   const days = ['일', '월', '화', '수', '목', '금', '토'];
-  const date = new Date(`${dateString}T00:00:00`);
-  if (isNaN(date.getTime())) return '';
+  const [year, month, day] = dateString.split('-').map(Number);
+  if (!year || !month || !day) return '';
+  const date = new Date(year, month - 1, day);
   return days[date.getDay()];
 };
 
-// 날짜 이동 함수 (offset일 추가/감소 후 YYYY-MM-DD 문자열 반환)
+// 정확하게 YYYY-MM-DD 기준 ±N일 계산하는 함수 (시차 및 이틀 이동 오류 해결)
 const shiftDate = (currentDateStr: string, offsetDays: number) => {
-  const date = new Date(`${currentDateStr}T00:00:00`);
-  if (isNaN(date.getTime())) return currentDateStr;
+  if (!currentDateStr) return currentDateStr;
+  const parts = currentDateStr.split('-').map(Number);
+  if (parts.length !== 3 || parts.some(isNaN)) return currentDateStr;
+
+  const [year, month, day] = parts;
+  const date = new Date(year, month - 1, day);
   date.setDate(date.getDate() + offsetDays);
-  return date.toISOString().split('T')[0];
+
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
 };
 
 // 예약 상태별 행(Row) 스타일 계산 함수
@@ -110,7 +119,13 @@ export default function ReservationDashboard() {
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
 
   // 오늘 날짜 구하기 (YYYY-MM-DD)
-  const getTodayString = () => new Date().toISOString().split('T')[0];
+  const getTodayString = () => {
+    const today = new Date();
+    const y = today.getFullYear();
+    const m = String(today.getMonth() + 1).padStart(2, '0');
+    const d = String(today.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+  };
 
   // 예약 관련 상태
   const [reservations, setReservations] = useState<Reservation[]>([]);
@@ -136,13 +151,13 @@ export default function ReservationDashboard() {
   const [isCustomerModalOpen, setIsCustomerModalOpen] = useState<boolean>(false);
   const [customerSearchQuery, setCustomerSearchQuery] = useState<string>('');
 
-  // 날짜 변경 핸들러
+  // 어제 / 내일 날짜 이동 처리
   const handlePrevDay = useCallback(() => {
-    setSelectedDate((prev) => shiftDate(prev, -1));
+    setSelectedDate((current) => shiftDate(current, -1));
   }, []);
 
   const handleNextDay = useCallback(() => {
-    setSelectedDate((prev) => shiftDate(prev, 1));
+    setSelectedDate((current) => shiftDate(current, 1));
   }, []);
 
   // 키보드 방향키 이동 이벤트 리스너 (모달이 닫혀있고 입력 요소에 포커스가 없을 때만 작동)
@@ -728,10 +743,10 @@ export default function ReservationDashboard() {
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
           <div>
             <h1 style={{ margin: '0 0 8px 0', fontSize: '24px', color: '#111827', fontWeight: 'bold' }}>
-              예약현황
+              꽃새담 여의도 예약현황
             </h1>
             <p style={{ margin: 0, fontSize: '14px', color: '#6b7280' }}>
-              실시간 예약 현황을 한눈에 확인하고 관리하세요. ({user.email})
+              실시간 예약 현황. 임의 삭제 금지. ({user.email})
             </p>
           </div>
 
