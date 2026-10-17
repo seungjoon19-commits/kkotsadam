@@ -692,7 +692,7 @@ export default function ReservationDashboard() {
                 </select>
               </div>
 
-              {/* 관리 영역: 삭제 버튼을 제거하고 수정 버튼만 유지 */}
+              {/* 관리 영역: 수정 버튼 */}
               <div style={{ textAlign: 'center', display: 'flex', justifyContent: 'center' }}>
                 <button
                   onClick={() => handleOpenEditModal(item)}
@@ -720,15 +720,23 @@ export default function ReservationDashboard() {
   // 2. 메인 예약현황 대시보드 화면
   return (
     <div style={{ padding: '24px', maxWidth: '1280px', margin: '0 auto', fontFamily: 'system-ui, -apple-system, sans-serif' }}>
+      {/* CSS 스티일 추가: 시계 아이콘 비활성화 */}
+      <style jsx global>{`
+        input[type="time"]::-webkit-calendar-picker-indicator {
+          display: none !important;
+          -webkit-appearance: none !important;
+        }
+      `}</style>
+
       {/* 상단 헤더 영역 */}
       <div style={{ backgroundColor: '#ffffff', padding: '24px', borderRadius: '12px', marginBottom: '20px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
           <div>
             <h1 style={{ margin: '0 0 8px 0', fontSize: '24px', color: '#111827', fontWeight: 'bold' }}>
-              예약현황
+              꽃새담 여의도 예약현황
             </h1>
             <p style={{ margin: 0, fontSize: '14px', color: '#6b7280' }}>
-              실시간 예약 현황을 한눈에 확인하고 관리하세요. ({user.email})
+              4인미만 룸 희망시 관리자에게 문의 할것. ({user.email})
             </p>
           </div>
 
@@ -783,7 +791,7 @@ export default function ReservationDashboard() {
           </div>
         </div>
 
-        {/* 날짜 선택 및 내비게이션 영역 (◀ 오늘 ▶ 및 좌우 키보드 탐색) */}
+        {/* 날짜 선택 및 내비게이션 영역 */}
         <div style={{ marginTop: '20px', display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
           <label htmlFor="date-select" style={{ fontSize: '14px', fontWeight: 'bold', color: '#374151' }}>
             날짜 선택:
@@ -938,7 +946,7 @@ export default function ReservationDashboard() {
                       const newDate = e.target.value;
                       setFormData({ ...formData, reservation_date: newDate });
                       if (newDate) {
-                        setSelectedDate(newDate); // 팝업 내 날짜 변경 시 메인 대시보드 날짜 동기화
+                        setSelectedDate(newDate);
                       }
                     }}
                     style={{ width: '100%', padding: '8px 10px', borderRadius: '6px', border: '1px solid #ccc', boxSizing: 'border-box', fontSize: '13px' }}
@@ -952,7 +960,15 @@ export default function ReservationDashboard() {
                     type="time"
                     value={formData.reservation_time}
                     onChange={(e) => setFormData({ ...formData, reservation_time: e.target.value })}
-                    style={{ width: '100%', padding: '8px 10px', borderRadius: '6px', border: '1px solid #ccc', boxSizing: 'border-box', fontSize: '13px' }}
+                    style={{ 
+                      width: '100%', 
+                      padding: '8px 10px', 
+                      borderRadius: '6px', 
+                      border: '1px solid #ccc', 
+                      boxSizing: 'border-box', 
+                      fontSize: '13px',
+                      WebkitAppearance: 'none' // 시계 아이콘 비활성화
+                    }}
                     required
                   />
                 </div>
@@ -1045,7 +1061,7 @@ export default function ReservationDashboard() {
         </div>
       )}
 
-      {/* 고객 관리 모달 팝업 (날짜/이름 클릭 시 해당 날짜로 이동 가능) */}
+      {/* 고객 관리 모달 팝업 */}
       {isCustomerModalOpen && (
         <div style={{
           position: 'fixed',
@@ -1158,7 +1174,6 @@ export default function ReservationDashboard() {
                       color: '#1f2937'
                     }}
                   >
-                    {/* 최근 예약일 클릭 가능 */}
                     <div 
                       onClick={() => handleSelectCustomerDate(customer.lastVisitDate)}
                       style={{ 
@@ -1173,7 +1188,6 @@ export default function ReservationDashboard() {
                       {customer.lastVisitDate || '-'}
                     </div>
 
-                    {/* 고객 성함 클릭 가능 */}
                     <div 
                       onClick={() => handleSelectCustomerDate(customer.lastVisitDate)}
                       style={{ 
