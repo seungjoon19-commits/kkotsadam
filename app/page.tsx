@@ -274,19 +274,6 @@ export default function ReservationDashboard() {
     }
   };
 
-  // 예약 삭제 함수
-  const handleDelete = async (id: string) => {
-    if (!confirm('정말로 이 예약을 삭제하시겠습니까?')) return;
-
-    const { error } = await supabase.from('reservations').delete().eq('id', id);
-
-    if (error) {
-      alert('삭제 중 오류가 발생했습니다.');
-    } else {
-      setReservations((prev) => prev.filter((item) => item.id !== id));
-    }
-  };
-
   // 예약 신규 등록 모달 열기
   const handleOpenCreateModal = () => {
     setEditingId(null);
@@ -406,6 +393,14 @@ export default function ReservationDashboard() {
     });
 
     return Object.values(map).sort((a, b) => b.lastVisitDate.localeCompare(a.lastVisitDate));
+  };
+
+  // 고객 관리 목록에서 날짜 클릭 시 해당 예약 날짜로 이동 및 모달 닫기
+  const handleSelectCustomerDate = (targetDate: string) => {
+    if (targetDate) {
+      setSelectedDate(targetDate);
+      setIsCustomerModalOpen(false);
+    }
   };
 
   // 고객 관리 목록 엑셀(CSV) 다운로드 함수
@@ -618,7 +613,7 @@ export default function ReservationDashboard() {
 
       <div style={{ 
         display: 'grid', 
-        gridTemplateColumns: '70px 60px 90px 140px 90px 110px 1fr 100px 110px', 
+        gridTemplateColumns: '70px 60px 90px 140px 90px 110px 1fr 100px 80px', 
         padding: '12px 16px', 
         backgroundColor: '#ffffff', 
         borderBottom: '1px solid #f1f5f9',
@@ -651,7 +646,7 @@ export default function ReservationDashboard() {
               key={item.id} 
               style={{ 
                 display: 'grid', 
-                gridTemplateColumns: '70px 60px 90px 140px 90px 110px 1fr 100px 110px', 
+                gridTemplateColumns: '70px 60px 90px 140px 90px 110px 1fr 100px 80px', 
                 alignItems: 'center',
                 padding: '14px 16px', 
                 borderBottom: '1px solid #f1f5f9',
@@ -697,35 +692,22 @@ export default function ReservationDashboard() {
                 </select>
               </div>
 
-              <div style={{ textAlign: 'center', display: 'flex', gap: '4px', justifyContent: 'center' }}>
+              {/* 관리 영역: 삭제 버튼을 제거하고 수정 버튼만 유지 */}
+              <div style={{ textAlign: 'center', display: 'flex', justifyContent: 'center' }}>
                 <button
                   onClick={() => handleOpenEditModal(item)}
                   style={{
-                    padding: '4px 8px',
+                    padding: '5px 12px',
                     backgroundColor: '#f3f4f6',
                     color: '#2563eb',
                     border: '1px solid #bfdbfe',
                     borderRadius: '4px',
                     fontSize: '12px',
                     cursor: 'pointer',
-                    fontWeight: '500'
+                    fontWeight: '600'
                   }}
                 >
                   수정
-                </button>
-                <button
-                  onClick={() => handleDelete(item.id)}
-                  style={{
-                    padding: '4px 8px',
-                    backgroundColor: 'transparent',
-                    color: '#ef4444',
-                    border: '1px solid #fca5a5',
-                    borderRadius: '4px',
-                    fontSize: '12px',
-                    cursor: 'pointer',
-                  }}
-                >
-                  삭제
                 </button>
               </div>
             </div>
@@ -743,10 +725,10 @@ export default function ReservationDashboard() {
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
           <div>
             <h1 style={{ margin: '0 0 8px 0', fontSize: '24px', color: '#111827', fontWeight: 'bold' }}>
-              꽃새담 여의도 예약현황
+              예약현황
             </h1>
             <p style={{ margin: 0, fontSize: '14px', color: '#6b7280' }}>
-              실시간 예약 현황. 임의 삭제 금지. ({user.email})
+              실시간 예약 현황을 한눈에 확인하고 관리하세요. ({user.email})
             </p>
           </div>
 
@@ -956,7 +938,7 @@ export default function ReservationDashboard() {
                       const newDate = e.target.value;
                       setFormData({ ...formData, reservation_date: newDate });
                       if (newDate) {
-                        setSelectedDate(newDate); // 팝업 내 날짜 변경 시 메인 대시보드 날짜도 동기화
+                        setSelectedDate(newDate); // 팝업 내 날짜 변경 시 메인 대시보드 날짜 동기화
                       }
                     }}
                     style={{ width: '100%', padding: '8px 10px', borderRadius: '6px', border: '1px solid #ccc', boxSizing: 'border-box', fontSize: '13px' }}
@@ -1063,7 +1045,7 @@ export default function ReservationDashboard() {
         </div>
       )}
 
-      {/* 고객 관리 모달 팝업 */}
+      {/* 고객 관리 모달 팝업 (날짜/이름 클릭 시 해당 날짜로 이동 가능) */}
       {isCustomerModalOpen && (
         <div style={{
           position: 'fixed',
@@ -1089,7 +1071,7 @@ export default function ReservationDashboard() {
               <div>
                 <h2 style={{ margin: 0, fontSize: '18px', color: '#111827' }}>고객 관리 목록</h2>
                 <p style={{ margin: '4px 0 0 0', fontSize: '13px', color: '#6b7280' }}>
-                  등록된 총 고객: <strong style={{ color: '#059669' }}>{getCustomerSummaries().length}</strong>명
+                  등록된 총 고객: <strong style={{ color: '#059669' }}>{getCustomerSummaries().length}</strong>명 (최근 예약일 클릭 시 해당 날짜로 이동)
                 </p>
               </div>
               <div style={{ display: 'flex', gap: '8px' }}>
@@ -1176,8 +1158,34 @@ export default function ReservationDashboard() {
                       color: '#1f2937'
                     }}
                   >
-                    <div style={{ color: '#2563eb', fontWeight: '600', fontSize: '12px' }}>{customer.lastVisitDate || '-'}</div>
-                    <div style={{ fontWeight: '600' }}>{customer.customer_name}</div>
+                    {/* 최근 예약일 클릭 가능 */}
+                    <div 
+                      onClick={() => handleSelectCustomerDate(customer.lastVisitDate)}
+                      style={{ 
+                        color: '#2563eb', 
+                        fontWeight: 'bold', 
+                        fontSize: '12px',
+                        cursor: customer.lastVisitDate ? 'pointer' : 'default',
+                        textDecoration: 'underline',
+                      }}
+                      title={customer.lastVisitDate ? `${customer.lastVisitDate} 예약 현황으로 이동` : ''}
+                    >
+                      {customer.lastVisitDate || '-'}
+                    </div>
+
+                    {/* 고객 성함 클릭 가능 */}
+                    <div 
+                      onClick={() => handleSelectCustomerDate(customer.lastVisitDate)}
+                      style={{ 
+                        fontWeight: '600',
+                        cursor: customer.lastVisitDate ? 'pointer' : 'default',
+                        color: '#1e293b'
+                      }}
+                      title={customer.lastVisitDate ? `${customer.lastVisitDate} 예약 현황으로 이동` : ''}
+                    >
+                      {customer.customer_name}
+                    </div>
+
                     <div style={{ color: '#4b5563' }}>{customer.customer_phone}</div>
                     <div style={{ fontWeight: 'bold', color: '#111827' }}>{customer.totalReservations}회</div>
                     <div>{customer.totalGuests}명</div>
